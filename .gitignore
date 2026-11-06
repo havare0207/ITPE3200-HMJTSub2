@@ -1,0 +1,26 @@
+# .NET
+**/bin/
+**/obj/
+.vs/
+.vscode/
+
+# React
+**/node_modules/
+**/dist/
+
+# Local databases
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Local secrets
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/secrets.json
+
+# macOS
+.DS_Store
