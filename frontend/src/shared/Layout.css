@@ -1,0 +1,132 @@
+
+/* =====================================
+   General application layout
+   ===================================== */
+
+.app-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* =====================================
+   Skip link accessibility
+   ===================================== */
+
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    z-index: 2000;
+    padding: 8px 16px;
+    background-color: #ffffff;
+    color: #0077cc;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* =====================================
+   Navigation bar
+   ===================================== */
+
+.navbar {
+    background-color: #1b6ec2;
+}
+
+.navbar-brand {
+    white-space: normal;
+    text-align: center;
+    word-break: break-word;
+    color: #ffffff;
+}
+
+.navbar-brand:hover {
+    color: #ffffff;
+}
+
+.navbar .nav-link {
+    color: #ffffff;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link.active {
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* =====================================
+   Main content
+   ===================================== */
+
+#main-content {
+    flex: 1;
+    padding-bottom: 1rem;
+}
+
+/* =====================================
+   General links and buttons
+   ===================================== */
+
+a {
+    color: #0077cc;
+}
+
+.btn-primary {
+    color: #ffffff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
+}
+
+.btn-primary:hover {
+    background-color: #155a9c;
+    border-color: #124d85;
+}
+
+/* =====================================
+   Borders and shadows
+   ===================================== */
+
+.border-top {
+    border-top: 1px solid #e5e5e5;
+}
+
+.border-bottom {
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.box-shadow {
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+}
+
+/* =====================================
+   Footer
+   ===================================== */
+
+.footer {
+    margin-top: auto;
+    width: 100%;
+    padding: 1rem 0;
+    border-top: 1px solid #e5e5e5;
+    background-color: #f8f9fa;
+}
+
+.footer a {
+    color: #0077cc;
+}
+
+/* =====================================
+   Responsive navigation
+   ===================================== */
+
+@media (max-width: 576px) {
+    .navbar-nav {
+        padding-top: 0.5rem;
+    }
+
+    .navbar .nav-link {
+        padding: 0.5rem 0;
+    }
+}
