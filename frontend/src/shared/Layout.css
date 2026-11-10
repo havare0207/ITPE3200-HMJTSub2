@@ -53,7 +53,7 @@
 .navbar .nav-link:hover,
 .navbar .nav-link.active {
     color: #ffffff;
-    text-decoration: underline;
+    text-decoration: none;
     font-weight: bold;
 }
 

@@ -1,12 +1,11 @@
 // ExploreQuestionsPage.jsx
-
 import { useEffect, useState } from "react";
 
 // Import the API service used to retrieve questions.
 import { getQuestions } from "../services/questionApi";
 
 // Import the search and filtering component.
-import ExploreQuestionFilters from "./ExploreQuestionFilters";
+import ExploreQuestionFilters from "./ExploreQuestionsFilters.jsx";
 
 function ExploreQuestionsPage() {
 
@@ -140,13 +139,6 @@ function ExploreQuestionsPage() {
                         Explore Questions
                     </h1>
 
-                    {/* Decorative page badge. */}
-                    <span
-                        className="badge bg-primary"
-                        aria-hidden="true"
-                    >
-                        Explore
-                    </span>
 
                 </div>
 

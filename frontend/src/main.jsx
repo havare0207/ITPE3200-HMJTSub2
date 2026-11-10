@@ -1,16 +1,20 @@
-// Import Bootstrap styling.
+
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+
+// Bootstrap styling
 import "bootstrap/dist/css/bootstrap.min.css";
 
+// Bootstrap JavaScript for responsive navigation and interactive components
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+// Your own application styling
+import "./index.css";
 
+import App from "./App.jsx";
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+createRoot(document.getElementById("root")).render(
+    <StrictMode>
+        <App />
+    </StrictMode>
+);
