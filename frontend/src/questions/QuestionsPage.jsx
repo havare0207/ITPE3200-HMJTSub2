@@ -7,40 +7,30 @@ import {
     deleteQuestion
 } from "../services/questionApi";
 
-import QuestionFilters from "./ExploreQuestionsFilters";
-
 function QuestionsPage() {
-    // Read the game ID from the current URL.
+    // Read the game ID from the URL.
     // Example: /games/5/questions gives gameId = "5".
     const { gameId } = useParams();
 
     const navigate = useNavigate();
 
-    // Stores the questions returned by the API.
+    // Stores the questions belonging to this game.
     const [questions, setQuestions] = useState([]);
 
-    // Stores the currently selected search filters.
-    const [filters, setFilters] = useState({
-        searchString: "",
-        category: "",
-        difficulty: ""
-    });
-
-    // Tracks whether questions are currently loading.
+    // Tracks whether the questions are loading.
     const [loading, setLoading] = useState(true);
 
-    // Stores an error message if an API request fails.
+    // Stores API error messages.
     const [error, setError] = useState("");
 
-    // Loads questions for the current game.
-    const loadQuestions = useCallback(async (currentFilters = {}) => {
+    // Loads questions for the selected game.
+    const loadQuestions = useCallback(async () => {
         try {
             setLoading(true);
             setError("");
 
-            // Include gameId so only questions for this game are requested.
+            // The API filters the questions using this game ID.
             const data = await getQuestions({
-                ...currentFilters,
                 gameId: gameId
             });
 
@@ -52,31 +42,12 @@ function QuestionsPage() {
         }
     }, [gameId]);
 
-    // Load questions when the page opens or the game ID changes.
+    // Load questions when the page opens or gameId changes.
     useEffect(() => {
         loadQuestions();
     }, [loadQuestions]);
 
-    // Handles the search form submission.
-    function handleSearch(event) {
-        event.preventDefault();
-
-        loadQuestions(filters);
-    }
-
-    // Clears the search filters and reloads all questions for this game.
-    function handleClear() {
-        const emptyFilters = {
-            searchString: "",
-            category: "",
-            difficulty: ""
-        };
-
-        setFilters(emptyFilters);
-        loadQuestions(emptyFilters);
-    }
-
-    // Deletes a question after the user confirms the action.
+    // Deletes a question after confirmation.
     async function handleDelete(id) {
         const confirmed = window.confirm(
             "Are you sure you want to delete this question?"
@@ -91,21 +62,23 @@ function QuestionsPage() {
 
             await deleteQuestion(id);
 
-            // Refresh the question list after successful deletion.
-            await loadQuestions(filters);
+            // Refresh the list after successful deletion.
+            await loadQuestions();
         } catch (err) {
             setError(err.message);
         }
     }
 
-    // Converts the numeric difficulty enum into readable text.
+    // Converts the numeric Difficulty enum into readable text.
+    // Easy = 0, Medium = 1, Hard = 2.
     function getDifficultyName(difficulty) {
-        const difficultyNames = ["Easy", "Medium", "Hard"];
+        const names = ["Easy", "Medium", "Hard"];
 
-        return difficultyNames[difficulty] ?? difficulty;
+        return names[difficulty] ?? difficulty;
     }
 
-    // Converts the numeric answer enum into a letter.
+    // Converts the numeric AnswerOption enum into a letter.
+    // A = 0, B = 1, C = 2, D = 3.
     function getCorrectAnswer(correctAnswer) {
         const answers = ["A", "B", "C", "D"];
 
@@ -113,124 +86,163 @@ function QuestionsPage() {
     }
 
     return (
-        <main>
-            <h1>Manage Questions</h1>
+        <div className="py-3">
 
-            <p>
-                View, search, create, edit and delete questions
-                belonging to this game.
-            </p>
+            {/* Page heading and introduction. */}
+            <div className="mb-4">
+                <h1>Manage Questions</h1>
 
-            {/* Return to the previous page, normally My Games. */}
-            <button
-                type="button"
-                onClick={() => navigate(-1)}
-            >
-                Back to My Games
-            </button>
+                <p className="text-muted">
+                    View, create, edit and delete questions
+                    belonging to this game.
+                </p>
+            </div>
 
-            {/* Navigate to the form for creating a new question. */}
-            <Link to={`/games/${gameId}/questions/create`}>
-                <button type="button">
+            {/* Navigation and create-question actions. */}
+            <div className="d-flex flex-wrap gap-2 mb-4">
+
+                {/* Return to the My Games page. */}
+                <Link
+                    to="/games"
+                    className="btn btn-secondary"
+                >
+                    Back to My Games
+                </Link>
+
+                {/* Open the form to create a new question. */}
+                <Link
+                    to={`/games/${gameId}/questions/create`}
+                    className="btn btn-primary"
+                >
                     Create Question
-                </button>
-            </Link>
+                </Link>
+            </div>
 
-            {/* Search and filtering controls. */}
-            <QuestionFilters
-                filters={filters}
-                setFilters={setFilters}
-                onSearch={handleSearch}
-                onClear={handleClear}
-            />
-
-            {/* Display a loading message while the API request runs. */}
-            {loading && <p>Loading questions...</p>}
-
-            {/* Display API errors to the user. */}
+            {/* Display errors returned by the API. */}
             {error && (
-                <p role="alert">
-                    Error: {error}
+                <div
+                    className="alert alert-danger"
+                    role="alert"
+                >
+                    {error}
+                </div>
+            )}
+
+            {/* Display a loading message while retrieving questions. */}
+            {loading && (
+                <p role="status">
+                    Loading questions...
                 </p>
             )}
 
-            {/* Display the questions once loading has finished. */}
+            {/* Display the questions after loading finishes. */}
             {!loading && !error && (
                 <>
                     {questions.length === 0 ? (
-                        <p>No questions found for this game.</p>
+
+                        /* Empty state when the game has no questions. */
+                        <div className="alert alert-info">
+                            No questions found for this game.
+                            Select Create Question to add one.
+                        </div>
+
                     ) : (
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Question</th>
-                                    <th>Category</th>
-                                    <th>Difficulty</th>
-                                    <th>Correct Answer</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
 
-                            <tbody>
-                                {questions.map(question => (
-                                    <tr key={question.questionId}>
-                                        <td>
-                                            {question.questionText}
-                                        </td>
+                        /* Responsive table containing the questions. */
+                        <div className="card">
+                            <div className="card-body">
 
-                                        <td>
-                                            {question.category}
-                                        </td>
+                                <h2 className="h4 mb-3">
+                                    Questions
+                                </h2>
 
-                                        <td>
-                                            {getDifficultyName(
-                                                question.difficulty
-                                            )}
-                                        </td>
+                                <div className="table-responsive">
+                                    <table className="table table-striped table-hover align-middle">
 
-                                        <td>
-                                            {getCorrectAnswer(
-                                                question.correctAnswer
-                                            )}
-                                        </td>
+                                        <caption className="visually-hidden">
+                                            Questions belonging to this game,
+                                            including their category,
+                                            difficulty and available actions.
+                                        </caption>
 
-                                        <td>
-                                            {/* View the question details. */}
-                                            <Link
-                                                to={`/games/${gameId}/questions/${question.questionId}`}
-                                            >
-                                                Details
-                                            </Link>
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th scope="col">Question</th>
+                                                <th scope="col">Category</th>
+                                                <th scope="col">Difficulty</th>
+                                                <th scope="col">Correct Answer</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
 
-                                            {" | "}
+                                        <tbody>
+                                            {questions.map(question => (
+                                                <tr key={question.questionId}>
 
-                                            {/* Edit the selected question. */}
-                                            <Link
-                                                to={`/games/${gameId}/questions/${question.questionId}/edit`}
-                                            >
-                                                Edit
-                                            </Link>
+                                                    <th scope="row">
+                                                        {question.questionText}
+                                                    </th>
 
-                                            {" | "}
+                                                    <td>
+                                                        {question.category}
+                                                    </td>
 
-                                            {/* Delete the selected question. */}
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    handleDelete(question.questionId)
-                                                }
-                                            >
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                                    <td>
+                                                        {getDifficultyName(
+                                                            question.difficulty
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        {getCorrectAnswer(
+                                                            question.correctAnswer
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        <div className="d-flex flex-wrap gap-2">
+
+                                                            {/* View question details. */}
+                                                            <Link
+                                                                to={`/games/${gameId}/questions/${question.questionId}`}
+                                                                className="btn btn-sm btn-outline-primary"
+                                                            >
+                                                                Details
+                                                            </Link>
+
+                                                            {/* Edit the question. */}
+                                                            <Link
+                                                                to={`/games/${gameId}/questions/${question.questionId}/edit`}
+                                                                className="btn btn-sm btn-outline-warning"
+                                                            >
+                                                                Edit
+                                                            </Link>
+
+                                                            {/* Delete the question. */}
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-outline-danger"
+                                                                onClick={() =>
+                                                                    handleDelete(question.questionId)
+                                                                }
+                                                            >
+                                                                Delete
+                                                            </button>
+
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </>
             )}
-        </main>
+        </div>
     );
 }
 

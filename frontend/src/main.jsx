@@ -9,7 +9,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 // Your own application styling
-import "./index.css";
+import "./site.css";
 
 import App from "./App.jsx";
 

@@ -5,12 +5,13 @@ import { Link, useParams } from "react-router-dom";
 import { getQuestionById } from "../services/questionApi";
 
 function QuestionDetails() {
-    // Get the game ID and question ID from the URL.
+    // Read the game ID and question ID from the URL.
     const { gameId, id } = useParams();
 
-    // Store the question returned by the API.
+    // Stores the question returned by the API.
     const [question, setQuestion] = useState(null);
 
+    // Tracks loading and error states.
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -32,6 +33,7 @@ function QuestionDetails() {
     useEffect(() => {
         async function loadQuestion() {
             try {
+                setLoading(true);
                 setError("");
 
                 const data = await getQuestionById(id);
@@ -54,92 +56,166 @@ function QuestionDetails() {
         loadQuestion();
     }, [id, gameId]);
 
+    // Display a loading message while retrieving the question.
     if (loading) {
-        return <p>Loading question details...</p>;
+        return (
+            <div className="py-3">
+                <p role="status">Loading question details...</p>
+            </div>
+        );
     }
 
+    // Display an error if the API request fails.
     if (error) {
         return (
-            <main>
-                <p role="alert">Error: {error}</p>
+            <div className="py-3">
+                <div className="alert alert-danger" role="alert">
+                    {error}
+                </div>
 
-                <Link to={`/games/${gameId}/questions`}>
+                <Link
+                    to={`/games/${gameId}/questions`}
+                    className="btn btn-secondary"
+                >
                     Back to Questions
                 </Link>
-            </main>
+            </div>
         );
     }
 
     // Do not render the question until it has been loaded.
     if (!question) {
-        return <p>Question not found.</p>;
+        return (
+            <div className="py-3">
+                <div className="alert alert-warning">
+                    Question not found.
+                </div>
+
+                <Link
+                    to={`/games/${gameId}/questions`}
+                    className="btn btn-secondary"
+                >
+                    Back to Questions
+                </Link>
+            </div>
+        );
     }
 
     return (
-        <main>
-            <h1>Question Details</h1>
+        <div className="py-3">
 
-            {/* Display the main question information. */}
-            <section>
-                <h2>{question.questionText}</h2>
+            {/* Main page heading. */}
+            <div className="mb-4">
+                <h1>Question Details</h1>
 
-                <p>
-                    <strong>Category:</strong> {question.category}
+                <p className="text-muted">
+                    View the full information for this question.
                 </p>
+            </div>
 
-                <p>
-                    <strong>Difficulty:</strong>{" "}
-                    {getDifficultyName(question.difficulty)}
-                </p>
+            {/* Card containing the main question information. */}
+            <div className="card mb-4">
+                <div className="card-body">
 
-                <p>
-                    <strong>Game:</strong> {question.gameName}
-                </p>
-            </section>
+                    <h2 className="h4 mb-3">
+                        {question.questionText}
+                    </h2>
 
-            {/* Display all four possible answers. */}
-            <section>
-                <h2>Answer Options</h2>
+                    <dl className="row mb-0">
 
-                <ul>
-                    <li>
-                        A: {question.answerA}
-                    </li>
+                        {/* Display the category. */}
+                        <dt className="col-sm-3">
+                            Category
+                        </dt>
 
-                    <li>
-                        B: {question.answerB}
-                    </li>
+                        <dd className="col-sm-9">
+                            {question.category}
+                        </dd>
 
-                    <li>
-                        C: {question.answerC}
-                    </li>
+                        {/* Display the difficulty. */}
+                        <dt className="col-sm-3">
+                            Difficulty
+                        </dt>
 
-                    <li>
-                        D: {question.answerD}
-                    </li>
-                </ul>
+                        <dd className="col-sm-9">
+                            {getDifficultyName(question.difficulty)}
+                        </dd>
 
-                {/* Display the correct answer. */}
-                <p>
-                    <strong>Correct Answer:</strong>{" "}
-                    {getCorrectAnswer(question.correctAnswer)}
-                </p>
-            </section>
+                        {/* Display the associated game. */}
+                        <dt className="col-sm-3">
+                            Game
+                        </dt>
 
-            {/* Navigate to the edit form. */}
-            <Link
-                to={`/games/${gameId}/questions/${question.questionId}/edit`}
-            >
-                Edit Question
-            </Link>
+                        <dd className="col-sm-9">
+                            {question.gameName}
+                        </dd>
 
-            {" | "}
+                    </dl>
+                </div>
+            </div>
 
-            {/* Return to the question list. */}
-            <Link to={`/games/${gameId}/questions`}>
-                Back to Questions
-            </Link>
-        </main>
+            {/* Card containing the four possible answers. */}
+            <div className="card mb-4">
+                <div className="card-body">
+
+                    <h2 className="h4 mb-3">
+                        Answer Options
+                    </h2>
+
+                    <ul className="list-group mb-3">
+
+                        {/* Answer A. */}
+                        <li className="list-group-item">
+                            <strong>A:</strong> {question.answerA}
+                        </li>
+
+                        {/* Answer B. */}
+                        <li className="list-group-item">
+                            <strong>B:</strong> {question.answerB}
+                        </li>
+
+                        {/* Answer C. */}
+                        <li className="list-group-item">
+                            <strong>C:</strong> {question.answerC}
+                        </li>
+
+                        {/* Answer D. */}
+                        <li className="list-group-item">
+                            <strong>D:</strong> {question.answerD}
+                        </li>
+
+                    </ul>
+
+                    {/* Highlight the correct answer. */}
+                    <div className="alert alert-success mb-0">
+                        <strong>Correct Answer:</strong>{" "}
+                        {getCorrectAnswer(question.correctAnswer)}
+                    </div>
+
+                </div>
+            </div>
+
+            {/* Page navigation actions. */}
+            <div className="d-flex flex-wrap gap-2">
+
+                {/* Open the edit form for this question. */}
+                <Link
+                    to={`/games/${gameId}/questions/${question.questionId}/edit`}
+                    className="btn btn-primary"
+                >
+                    Edit Question
+                </Link>
+
+                {/* Return to the game's question list. */}
+                <Link
+                    to={`/games/${gameId}/questions`}
+                    className="btn btn-secondary"
+                >
+                    Back to Questions
+                </Link>
+
+            </div>
+        </div>
     );
 }
 

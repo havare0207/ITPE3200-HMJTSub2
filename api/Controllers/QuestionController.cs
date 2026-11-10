@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HMJT.Controllers;
 
-[Authorize]
+//[Authorize]
 [ApiController]
 [Route("api/questions")]
 public class QuestionController : ControllerBase
