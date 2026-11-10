@@ -1,14 +1,12 @@
+// ExploreQuestionsPage.jsx
 
 import { useEffect, useState } from "react";
 
-// Import the function that retrieves questions from the backend API.
+// Import the API service used to retrieve questions.
 import { getQuestions } from "../services/questionApi";
 
-// Import the filter component.
+// Import the search and filtering component.
 import ExploreQuestionFilters from "./ExploreQuestionFilters";
-
-// Import shared styling.
-import "../shared/Layout.css";
 
 function ExploreQuestionsPage() {
 
@@ -23,7 +21,7 @@ function ExploreQuestionsPage() {
         gameId: ""
     });
 
-    // Stores the filters that should actually be applied to the API request.
+    // Stores the filters currently applied to the API request.
     const [appliedFilters, setAppliedFilters] = useState({
         searchString: "",
         category: "",
@@ -37,25 +35,31 @@ function ExploreQuestionsPage() {
     // Stores an error message if the API request fails.
     const [error, setError] = useState("");
 
+    // Sets the browser tab title.
+    useEffect(() => {
+        document.title = "Explore Questions";
+    }, []);
+
     // Retrieves questions whenever the applied filters change.
     useEffect(() => {
 
-        // Defines an asynchronous function for loading questions.
+        // This function loads the questions from the API.
         async function loadQuestions() {
+
             try {
                 setLoading(true);
                 setError("");
 
-                // Request questions from the backend using the selected filters.
+                // Send the selected filters to the backend.
                 const data = await getQuestions(appliedFilters);
 
-                // Save the retrieved questions in state.
+                // Store the returned questions.
                 setQuestions(data);
 
             } catch (err) {
 
                 // Display an error if the API request fails.
-                setError(err.message);
+                setError(err.message || "Unable to load questions.");
 
             } finally {
 
@@ -68,15 +72,15 @@ function ExploreQuestionsPage() {
 
     }, [appliedFilters]);
 
-    // Applies the selected filters when the search form is submitted.
+    // Applies the selected filters when the form is submitted.
     function handleSearch(event) {
         event.preventDefault();
 
-        // Copy the selected filters into the applied filters.
+        // Copy the current filter values into the applied filters.
         setAppliedFilters({ ...filters });
     }
 
-    // Clears all filters and retrieves all questions again.
+    // Clears all filters and retrieves the questions again.
     function handleClear() {
 
         const emptyFilters = {
@@ -86,12 +90,14 @@ function ExploreQuestionsPage() {
             gameId: ""
         };
 
+        // Reset the filter inputs.
         setFilters(emptyFilters);
+
+        // Request all questions without filters.
         setAppliedFilters(emptyFilters);
     }
 
     // Creates a list of unique games from the retrieved questions.
-    // This list is used to populate the Game filter dropdown.
     const gameOptions = [
         ...new Map(
             questions.map(question => [
@@ -106,31 +112,77 @@ function ExploreQuestionsPage() {
 
     // Converts the numeric difficulty value from the API into a readable name.
     function getDifficultyName(difficulty) {
+
+        // These values correspond to the backend Difficulty enum.
         return ["Easy", "Medium", "Hard"][difficulty] ?? difficulty;
     }
 
-    // Converts the numeric correct answer value into its corresponding letter.
+    // Converts the numeric correct-answer value into its corresponding letter.
     function getAnswerLetter(answer) {
+
+        // These values correspond to the backend AnswerOption enum.
         return ["A", "B", "C", "D"][answer] ?? answer;
     }
 
     return (
-        <main className="explore-questions">
+        <div className="explore-questions">
 
-            {/* Page heading. */}
-            <h1>Explore Questions</h1>
+            {/* =====================================
+                Page heading and introduction
+                ===================================== */}
 
-            {/* Welcome section introducing the Explore Questions page. */}
-            <section className="explore-welcome">
-                <h2>Welcome, Curious Mind!</h2>
+            <div className="mb-4">
 
-                <p>
-                    Explore questions, discover different categories
-                    and test your knowledge.
-                </p>
-            </section>
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
 
-            {/* Display the question filters. */}
+                    {/* Main page heading. */}
+                    <h1 className="mb-0">
+                        Explore Questions
+                    </h1>
+
+                    {/* Decorative page badge. */}
+                    <span
+                        className="badge bg-primary"
+                        aria-hidden="true"
+                    >
+                        Explore
+                    </span>
+
+                </div>
+
+                {/* Welcome banner matching Subapp 1. */}
+                <section
+                    className="welcome-banner p-4 p-md-5 mb-4 rounded-3 text-white"
+                    aria-labelledby="questions-welcome-heading"
+                >
+
+                    <h2 id="questions-welcome-heading">
+                        Welcome, Curious Mind!
+
+                        <span aria-hidden="true"> 🧠</span>
+                    </h2>
+
+                    <p className="mb-3">
+                        Explore the questions in your custom games,
+                        discover different topics, and challenge your knowledge.
+                    </p>
+
+                    <p className="mb-0">
+                        Search through questions from the games you have created
+                        and find exactly what you are looking for using the
+                        search and filtering options below.
+                        Let the quiz adventure begin!
+                    </p>
+
+                </section>
+
+            </div>
+
+            {/* =====================================
+                Search and filtering
+                ===================================== */}
+
+            {/* Display the separate search and filtering component. */}
             <ExploreQuestionFilters
                 filters={filters}
                 setFilters={setFilters}
@@ -139,49 +191,112 @@ function ExploreQuestionsPage() {
                 onClear={handleClear}
             />
 
+            {/* =====================================
+                Loading and error messages
+                ===================================== */}
+
             {/* Display a loading message while retrieving questions. */}
             {loading && (
-                <p>Loading questions...</p>
+                <div className="alert alert-info" role="status">
+                    Loading questions...
+                </div>
             )}
 
             {/* Display an error if the API request fails. */}
-            {error && (
-                <p role="alert">{error}</p>
+            {!loading && error && (
+                <div className="alert alert-danger" role="alert">
+                    {error}
+                </div>
             )}
 
-            {/* Display the question results after loading is complete. */}
-            {!loading && !error && (
-                <section className="explore-results">
+            {/* =====================================
+                Search results
+                ===================================== */}
 
-                    {/* Display how many questions were found. */}
-                    <p>
-                        Showing {questions.length} question(s)
+            {!loading && !error && (
+
+                <section aria-labelledby="question-results-heading">
+
+                    {/* Results heading and question count. */}
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+
+                        <h2
+                            id="question-results-heading"
+                            className="h5 mb-0"
+                        >
+                            Questions
+                        </h2>
+
+                        {/* Makes the result count available to screen readers. */}
+                        <span
+                            className="badge bg-secondary"
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
+                        >
+                            {questions.length} question(s)
+                        </span>
+
+                    </div>
+
+                    {/* Hidden description for screen-reader users. */}
+                    <p className="visually-hidden">
+                        {questions.length} question results are currently displayed.
                     </p>
 
-                    {/* Display a message if there are no matching questions. */}
+                    {/* =====================================
+                        Empty search result
+                        ===================================== */}
+
                     {questions.length === 0 ? (
 
-                        <div className="empty-state">
-                            <h2>No questions found</h2>
+                        <div className="text-center py-4">
 
-                            <p>
-                                Try changing your filters to find questions.
+                            {/* Decorative search icon. */}
+                            <i
+                                className="bi bi-search fs-3 d-block mb-2 text-muted"
+                                aria-hidden="true"
+                            />
+
+                            <strong>
+                                No questions found
+                            </strong>
+
+                            <p className="text-muted mb-2">
+                                Try another keyword or change your filters.
                             </p>
 
-                            <button onClick={handleClear}>
+                            {/* Clears the filters and displays all questions again. */}
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={handleClear}
+                            >
                                 Show all questions
                             </button>
+
                         </div>
 
                     ) : (
 
-                        // Display the questions in a responsive table.
+                        /* =====================================
+                           Questions table
+                           ===================================== */
+
+                        // Makes the table horizontally scrollable on smaller screens.
                         <div className="table-responsive">
 
-                            <table>
-                                <caption>Available questions</caption>
+                            <table className="table table-bordered table-striped table-hover align-middle">
 
-                                <thead>
+                                {/* Accessible table description. */}
+                                <caption className="visually-hidden">
+                                    Search results showing questions from the current
+                                    user's custom games, including category,
+                                    difficulty, correct answer and game name.
+                                </caption>
+
+                                <thead className="table-light">
+
                                     <tr>
                                         <th scope="col">Question</th>
                                         <th scope="col">Category</th>
@@ -189,14 +304,17 @@ function ExploreQuestionsPage() {
                                         <th scope="col">Correct Answer</th>
                                         <th scope="col">Game Name</th>
                                     </tr>
+
                                 </thead>
 
                                 <tbody>
 
-                                    {/* Create one table row for each question. */}
+                                    {/* Display each question matching the filters. */}
                                     {questions.map(question => (
+
                                         <tr key={question.questionId}>
 
+                                            {/* Question text acts as the row heading. */}
                                             <th scope="row">
                                                 {question.questionText}
                                             </th>
@@ -218,18 +336,22 @@ function ExploreQuestionsPage() {
                                             </td>
 
                                         </tr>
+
                                     ))}
 
                                 </tbody>
+
                             </table>
 
                         </div>
+
                     )}
 
                 </section>
+
             )}
 
-        </main>
+        </div>
     );
 }
 
