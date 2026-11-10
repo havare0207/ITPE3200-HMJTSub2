@@ -9,21 +9,17 @@ namespace HMJT.DTOs;
 
 public class UpdateQuestionDto
 {
-    // Updated question text is required and cannot exceed 500 characters.
     [Required(ErrorMessage = "Question text is required.")]
     [StringLength(500, ErrorMessage = "Question text cannot exceed 500 characters.")]
     public string QuestionText { get; set; } = string.Empty;
 
-    // Updated category is required and cannot exceed 100 characters.
     [Required(ErrorMessage = "Category is required.")]
     [StringLength(100, ErrorMessage = "Category cannot exceed 100 characters.")]
     public string Category { get; set; } = string.Empty;
 
-    // The difficulty must be a defined Difficulty enum value.
     [EnumDataType(typeof(Difficulty), ErrorMessage = "Invalid difficulty level.")]
     public Difficulty Difficulty { get; set; }
 
-    // Each updated answer is required and cannot exceed 300 characters.
     [Required(ErrorMessage = "Answer A is required.")]
     [StringLength(300, ErrorMessage = "Answer A cannot exceed 300 characters.")]
     public string AnswerA { get; set; } = string.Empty;
@@ -40,7 +36,6 @@ public class UpdateQuestionDto
     [StringLength(300, ErrorMessage = "Answer D cannot exceed 300 characters.")]
     public string AnswerD { get; set; } = string.Empty;
 
-    // The correct answer must be a defined AnswerOption enum value.
-    [EnumDataType(typeof(AnswerOption), ErrorMessage = "Invalid correct answer option.")]
+    [EnumDataType(typeof(AnswerOption), ErrorMessage = "Invalid correct answer.")]
     public AnswerOption CorrectAnswer { get; set; }
 }
