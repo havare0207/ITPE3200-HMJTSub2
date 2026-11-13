@@ -229,3 +229,756 @@ textarea:focus-visible,
         scroll-behavior: auto !important;
     }
 }
+
+/* ==========================================
+   Home page
+   ========================================== */
+
+.home-page {
+    width: 100%;
+}
+
+
+/* ==========================================
+   Hero section
+   ========================================== */
+
+.home-hero {
+    padding: 3rem;
+    border-radius: 1rem;
+    background: linear-gradient(
+        135deg,
+        #eef2ff 0%,
+        #f5f7ff 100%
+    );
+}
+
+.home-hero-title {
+    margin-bottom: 1.25rem;
+    color: #172554;
+    font-size: clamp(2.2rem, 4vw, 3.5rem);
+    font-weight: 700;
+}
+
+.home-hero-text {
+    max-width: 760px;
+    margin-bottom: 1.5rem;
+    color: #172033;
+    font-size: 1.15rem;
+    line-height: 1.7;
+}
+
+.home-hero-image {
+    width: 100%;
+    max-width: 390px;
+    height: auto;
+}
+
+.home-hero-primary {
+    background-color: #1e40af;
+    border-color: #1e40af;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.home-hero-primary:hover,
+.home-hero-primary:focus {
+    background-color: #1e3a8a;
+    border-color: #1e3a8a;
+    color: #ffffff;
+}
+
+
+/* ==========================================
+   Main information cards
+   ========================================== */
+
+.home-section-card {
+    padding: 2rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background-color: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.home-section-card h2 {
+    color: #172554;
+}
+
+.home-section-icon {
+    margin-bottom: 0.75rem;
+    color: #1e40af;
+    font-size: 1.35rem;
+}
+
+
+/* ==========================================
+   How to Play
+   ========================================== */
+
+.home-steps {
+    margin: 0;
+    padding-left: 1.6rem;
+}
+
+.home-steps li {
+    margin-bottom: 1rem;
+    padding-left: 0.4rem;
+}
+
+.home-steps li:last-child {
+    margin-bottom: 0;
+}
+
+.home-step-icon {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    margin-right: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: #e0e7ff;
+    color: #1e3a8a;
+}
+
+.home-steps li > div:last-child {
+    display: inline;
+}
+
+
+/* ==========================================
+   Category cards
+   ========================================== */
+
+.home-category-card {
+    padding: 1.5rem;
+    border: 2px solid transparent;
+    border-radius: 1rem;
+    background-color: #ffffff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.home-category-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.home-category-card h3 {
+    margin-bottom: 0.75rem;
+    font-size: 1.4rem;
+}
+
+.home-category-card p {
+    margin-bottom: 0;
+    color: #172033;
+}
+
+.home-category-icon {
+    margin-bottom: 0.75rem;
+    font-size: 1.6rem;
+}
+
+
+/* Java - blue */
+.category-java {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+}
+
+.category-java .home-category-icon,
+.category-java h3 {
+    color: #1e40af;
+}
+
+
+/* JavaScript - green */
+.category-javascript {
+    border-color: #16a34a;
+    background-color: #f0fdf4;
+}
+
+.category-javascript .home-category-icon,
+.category-javascript h3 {
+    color: #166534;
+}
+
+
+/* HTML / CSS - orange */
+.category-html {
+    border-color: #ea580c;
+    background-color: #fff7ed;
+}
+
+.category-html .home-category-icon,
+.category-html h3 {
+    color: #9a3412;
+}
+
+
+/* Python - yellow */
+.category-python {
+    border-color: #ca8a04;
+    background-color: #fefce8;
+}
+
+.category-python .home-category-icon,
+.category-python h3 {
+    color: #854d0e;
+}
+
+
+/* Game History - pink */
+.category-game-history {
+    border-color: #db2777;
+    background-color: #fdf2f8;
+}
+
+.category-game-history .home-category-icon,
+.category-game-history h3 {
+    color: #9d174d;
+}
+
+
+/* C# - purple */
+.category-csharp {
+    border-color: #7c3aed;
+    background-color: #f5f3ff;
+}
+
+.category-csharp .home-category-icon,
+.category-csharp h3 {
+    color: #5b21b6;
+}
+
+
+/* ==========================================
+   Ready to Start
+   ========================================== */
+
+.home-start-card {
+    padding: 2.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background-color: #ffffff;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.home-start-icon {
+    display: block;
+    margin-bottom: 0.75rem;
+    color: #1e40af;
+    font-size: 2rem;
+}
+
+
+/* ==========================================
+   Responsive Home layout
+   ========================================== */
+
+@media (max-width: 767.98px) {
+    .home-hero {
+        padding: 2rem 1.5rem;
+    }
+
+    .home-hero-image {
+        max-width: 280px;
+    }
+
+    .home-section-card {
+        padding: 1.5rem;
+    }
+
+    .home-start-card {
+        padding: 2rem 1.5rem;
+    }
+}
+
+.home-categories-image {
+    width: 100%;
+    max-width: 700px;
+    height: auto;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+#how-to-play {
+    scroll-margin-top: 6rem;
+}
+
+.home-how-to-play-link {
+    display: inline-flex;
+    align-items: center;
+    color: #1e40af;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.home-how-to-play-link:hover {
+    color: #1e3a8a;
+    text-decoration: underline;
+}
+
+.home-how-to-play-link:focus-visible {
+    outline: 3px solid #1e40af;
+    outline-offset: 4px;
+    border-radius: 0.25rem;
+}
+.home-hero-secondary {
+    color: #1e40af;
+    border-color: #1e40af;
+    background-color: #ffffff;
+    font-weight: 600;
+}
+
+.home-hero-secondary:hover,
+.home-hero-secondary:focus {
+    color: #ffffff;
+    background-color: #1e40af;
+    border-color: #1e40af;
+}
+
+.home-stat-card {
+    padding: 1.25rem;
+    border-radius: 0.9rem;
+    background-color: #ffffff;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.home-stat-number {
+    display: block;
+    color: #172554;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.home-stat-label {
+    display: block;
+    margin-top: 0.4rem;
+    color: #334155;
+    font-size: 1rem;
+}
+
+/* =========================================
+   Categories page
+   ========================================= */
+
+.categories-page {
+    padding-bottom: 2rem;
+}
+
+.categories-intro {
+    margin-bottom: 2.5rem;
+}
+
+.categories-eyebrow,
+.categories-resource-eyebrow,
+.category-label {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #1f4bb8;
+    margin-bottom: 0.75rem;
+}
+
+.categories-title,
+.game-history-title {
+    font-size: clamp(2.4rem, 5vw, 4.3rem);
+    font-weight: 800;
+    line-height: 1.05;
+    color: #11204d;
+    margin-bottom: 1.25rem;
+}
+
+.categories-intro-text,
+.game-history-intro {
+    font-size: 1.1rem;
+    max-width: 900px;
+    color: #33415c;
+    margin-bottom: 0;
+}
+
+/* =========================================
+   Category resource cards
+   ========================================= */
+
+.category-resource-card {
+    height: 100%;
+    background-color: #ffffff;
+    border: 1px solid #dbe3f3;
+    border-radius: 1.75rem;
+    padding: 1.75rem;
+    box-shadow: 0 10px 24px rgba(17, 29, 66, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.category-resource-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 6px;
+    border-radius: 1.75rem 1.75rem 0 0;
+    background-color: #1f4bb8;
+}
+
+.category-resource-icon {
+    width: 4rem;
+    height: 4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.1rem;
+    margin-bottom: 1rem;
+    font-size: 1.55rem;
+    background-color: rgba(255, 255, 255, 0.55);
+    color: #11204d;
+}
+
+.category-resource-title {
+    font-size: 2.05rem;
+    font-weight: 800;
+    color: #11204d;
+    margin-bottom: 1rem;
+}
+
+.category-resource-card p {
+    color: #33415c;
+}
+
+.category-resource-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    margin-top: 1.5rem;
+}
+
+.category-resource-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.category-resource-links .btn {
+    border-radius: 0.95rem;
+    font-weight: 700;
+    padding: 0.85rem 1.15rem;
+    border: none;
+}
+
+.category-link-primary {
+    color: #ffffff;
+}
+
+.category-link-primary:hover {
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.category-link-secondary {
+    color: #11204d;
+    background-color: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(17, 32, 77, 0.08);
+}
+
+.category-link-secondary:hover {
+    color: #11204d;
+    background-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+/* =========================================
+   Category color themes
+   ========================================= */
+
+.category-java {
+    background: #f8fbff;
+}
+
+.category-java::before {
+    background: #1f5aa8;
+}
+
+.category-java .category-resource-icon {
+    background-color: #e8eefb;
+    color: #1f5aa8;
+}
+
+.category-java .category-link-primary {
+    background-color: #1f5aa8;
+}
+
+.category-javascript {
+    background: #f7fcf7;
+}
+
+.category-javascript::before {
+    background: #1e7a43;
+}
+
+.category-javascript .category-resource-icon {
+    background-color: #dceee2;
+    color: #1e7a43;
+}
+
+.category-javascript .category-link-primary {
+    background-color: #1e7a43;
+}
+
+.category-html {
+    background: #fffaf4;
+}
+
+.category-html::before {
+    background: #a75608;
+}
+
+.category-html .category-resource-icon {
+    background-color: #f1e5d8;
+    color: #a75608;
+}
+
+.category-html .category-link-primary {
+    background-color: #a75608;
+}
+
+.category-python {
+    background: #fffdf3;
+}
+
+.category-python::before {
+    background: #8b7600;
+}
+
+.category-python .category-resource-icon {
+    background-color: #efe9c8;
+    color: #8b7600;
+}
+
+.category-python .category-link-primary {
+    background-color: #8b7600;
+}
+
+.category-game-history {
+    background: #fff7fb;
+}
+
+.category-game-history::before {
+    background: #a81f5d;
+}
+
+.category-game-history .category-resource-icon {
+    background-color: #f1dce6;
+    color: #a81f5d;
+}
+
+.category-game-history .category-link-primary {
+    background-color: #a81f5d;
+}
+
+.category-csharp {
+    background: #fbf8ff;
+}
+
+.category-csharp::before {
+    background: #6b30b5;
+}
+
+.category-csharp .category-resource-icon {
+    background-color: #e9ddf8;
+    color: #6b30b5;
+}
+
+.category-csharp .category-link-primary {
+    background-color: #6b30b5;
+}
+
+/* =========================================
+   Game History timeline
+   ========================================= */
+
+.game-history-section {
+    margin-top: 1rem;
+}
+
+.game-history-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0 0;
+    position: relative;
+}
+
+.game-history-timeline::before {
+    content: "";
+    position: absolute;
+    left: 1.1rem;
+    top: 0.3rem;
+    bottom: 0.3rem;
+    width: 4px;
+    background: #f03b7a;
+    border-radius: 999px;
+}
+
+.game-history-timeline li {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 2rem;
+    align-items: start;
+    position: relative;
+    margin-bottom: 2rem;
+    padding-left: 3.2rem;
+}
+
+.game-history-timeline li::before {
+    content: "";
+    position: absolute;
+    left: 0.56rem;
+    top: 0.35rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 999px;
+    border: 4px solid #f03b7a;
+    background-color: #ffffff;
+    z-index: 1;
+}
+
+.timeline-year {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #9f1f55;
+    line-height: 1.1;
+    padding-top: 0.2rem;
+}
+
+.timeline-card {
+    background: #ffffff;
+    border: 1px solid #dbe3f3;
+    border-radius: 1.6rem;
+    padding: 1.6rem 1.8rem;
+    box-shadow: 0 10px 24px rgba(17, 29, 66, 0.07);
+}
+
+.timeline-card h3 {
+    font-size: 1.95rem;
+    font-weight: 800;
+    color: #11204d;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-card p {
+    margin-bottom: 0;
+    color: #33415c;
+    font-size: 1.05rem;
+}
+
+/* =========================================
+   External learning resource
+   ========================================= */
+
+.categories-learning-resource {
+    margin-top: 3rem;
+    background: linear-gradient(90deg, #1b2e7b, #4338ca);
+    color: #ffffff;
+    border-radius: 1.9rem;
+    padding: 2.4rem 2.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    box-shadow: 0 14px 32px rgba(30, 40, 100, 0.18);
+}
+
+.categories-learning-resource h2 {
+    color: #ffffff;
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.categories-learning-resource p {
+    color: rgba(255, 255, 255, 0.95);
+    max-width: 780px;
+    margin-bottom: 0;
+}
+
+.categories-resource-eyebrow {
+    color: #d8e3ff;
+    margin-bottom: 0.75rem;
+}
+
+.categories-resource-button {
+    background-color: #ffffff;
+    color: #11204d;
+    border: none;
+    border-radius: 1rem;
+    font-weight: 800;
+    padding: 1rem 1.4rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.categories-resource-button:hover {
+    background-color: #f4f6ff;
+    color: #11204d;
+    transform: translateY(-1px);
+}
+
+/* =========================================
+   Responsive categories page
+   ========================================= */
+
+@media (max-width: 991.98px) {
+    .game-history-timeline li {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+
+    .timeline-year {
+        padding-top: 0;
+    }
+
+    .categories-learning-resource {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .category-resource-title {
+        font-size: 1.8rem;
+    }
+
+    .category-resource-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .game-history-timeline::before {
+        left: 0.95rem;
+    }
+
+    .game-history-timeline li {
+        padding-left: 2.7rem;
+    }
+
+    .game-history-timeline li::before {
+        left: 0.42rem;
+    }
+
+    .timeline-card h3 {
+        font-size: 1.6rem;
+    }
+
+    .categories-learning-resource h2 {
+        font-size: 2.2rem;
+    }
+}

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./shared/Layout";
 import HomePage from "./home/HomePage";
+import CategoriesPage from "./categories/CategoriesPage";
 
 import ExploreQuestionsPage from "./questions/ExploreQuestionsPage";
 import QuestionsPage from "./questions/QuestionsPage";
@@ -22,6 +23,12 @@ function App() {
                     <Route
                         path="/"
                         element={<HomePage />}
+                    />
+                   
+                    {/* Categories page */}
+                    <Route
+                        path="/categories"
+                        element={<CategoriesPage />}
                     />
 
                     {/* Explore all questions */}

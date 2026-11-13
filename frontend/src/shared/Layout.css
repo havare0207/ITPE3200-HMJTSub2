@@ -1,4 +1,3 @@
-
 /* =====================================
    General application layout
    ===================================== */
@@ -8,6 +7,7 @@
     display: flex;
     flex-direction: column;
 }
+
 
 /* =====================================
    Skip link accessibility
@@ -27,6 +27,7 @@
     top: 0;
 }
 
+
 /* =====================================
    Navigation bar
    ===================================== */
@@ -35,18 +36,36 @@
     background-color: #1b6ec2;
 }
 
+/*
+   Prevent the CodePursuit brand from shrinking
+   or breaking across multiple lines.
+*/
 .navbar-brand {
-    white-space: normal;
-    text-align: center;
-    word-break: break-word;
+    flex-shrink: 0;
+    white-space: nowrap;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.navbar-brand:hover,
+.navbar-brand:focus {
     color: #ffffff;
 }
 
-.navbar-brand:hover {
-    color: #ffffff;
+/*
+   Keep navigation items vertically aligned.
+*/
+.navbar-nav {
+    align-items: center;
 }
 
+/*
+   Prevent navigation labels such as
+   "Explore Questions" and "My Games"
+   from wrapping onto multiple lines.
+*/
 .navbar .nav-link {
+    white-space: nowrap;
     color: #ffffff;
 }
 
@@ -57,6 +76,7 @@
     font-weight: bold;
 }
 
+
 /* =====================================
    Main content
    ===================================== */
@@ -65,6 +85,7 @@
     flex: 1;
     padding-bottom: 1rem;
 }
+
 
 /* =====================================
    General links and buttons
@@ -80,10 +101,13 @@ a {
     border-color: #1861ac;
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:focus {
+    color: #ffffff;
     background-color: #155a9c;
     border-color: #124d85;
 }
+
 
 /* =====================================
    Borders and shadows
@@ -101,6 +125,7 @@ a {
     box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
 }
 
+
 /* =====================================
    Footer
    ===================================== */
@@ -117,10 +142,29 @@ a {
     color: #0077cc;
 }
 
+
 /* =====================================
    Responsive navigation
    ===================================== */
 
+/*
+   The navbar is collapsed earlier in Layout.jsx
+   using navbar-expand-xl. This prevents all links
+   from being squeezed together on medium screens.
+*/
+@media (max-width: 1199.98px) {
+    .navbar-nav {
+        align-items: flex-start;
+        padding-top: 0.75rem;
+    }
+
+    .navbar .nav-link {
+        padding: 0.5rem 0;
+    }
+}
+
+
+/* Extra spacing for small mobile screens. */
 @media (max-width: 576px) {
     .navbar-nav {
         padding-top: 0.5rem;
