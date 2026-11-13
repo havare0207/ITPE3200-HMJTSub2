@@ -1,18 +1,15 @@
-
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
 import {
     getQuestions,
     deleteQuestion
-} from "../services/questionApi";
+} from "./QuestionService";
 
 function QuestionsPage() {
     // Read the game ID from the URL.
     // Example: /games/5/questions gives gameId = "5".
     const { gameId } = useParams();
-
-    const navigate = useNavigate();
 
     // Stores the questions belonging to this game.
     const [questions, setQuestions] = useState([]);
@@ -23,8 +20,12 @@ function QuestionsPage() {
     // Stores API error messages.
     const [error, setError] = useState("");
 
-    // Loads questions for the selected game.
-    const loadQuestions = useCallback(async () => {
+
+    // Loads questions again after an operation such as deletion.
+    // This function can safely update loading/error state because
+    // it is called from a user-triggered operation, not directly
+    // from the initial useEffect.
+    async function loadQuestions() {
         try {
             setLoading(true);
             setError("");
@@ -36,16 +37,55 @@ function QuestionsPage() {
 
             setQuestions(data);
         } catch (err) {
-            setError(err.message);
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to load questions."
+            );
         } finally {
             setLoading(false);
         }
-    }, [gameId]);
+    }
+
 
     // Load questions when the page opens or gameId changes.
     useEffect(() => {
-        loadQuestions();
-    }, [loadQuestions]);
+        let cancelled = false;
+
+        async function loadInitialQuestions() {
+            try {
+                const data = await getQuestions({
+                    gameId: gameId
+                });
+
+                // Only update state if the component is still mounted.
+                if (!cancelled) {
+                    setQuestions(data);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "Unable to load questions."
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialQuestions();
+
+        // Prevent state updates if the component is removed
+        // before the API request has completed.
+        return () => {
+            cancelled = true;
+        };
+    }, [gameId]);
+
 
     // Deletes a question after confirmation.
     async function handleDelete(id) {
@@ -65,9 +105,14 @@ function QuestionsPage() {
             // Refresh the list after successful deletion.
             await loadQuestions();
         } catch (err) {
-            setError(err.message);
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to delete the question."
+            );
         }
     }
+
 
     // Converts the numeric Difficulty enum into readable text.
     // Easy = 0, Medium = 1, Hard = 2.
@@ -77,6 +122,7 @@ function QuestionsPage() {
         return names[difficulty] ?? difficulty;
     }
 
+
     // Converts the numeric AnswerOption enum into a letter.
     // A = 0, B = 1, C = 2, D = 3.
     function getCorrectAnswer(correctAnswer) {
@@ -85,20 +131,32 @@ function QuestionsPage() {
         return answers[correctAnswer] ?? correctAnswer;
     }
 
+
     return (
         <div className="py-3">
 
-            {/* Page heading and introduction. */}
+            {/* =====================================
+                Page heading and introduction
+                ===================================== */}
+
             <div className="mb-4">
-                <h1>Manage Questions</h1>
+
+                <h1>
+                    Manage Questions
+                </h1>
 
                 <p className="text-muted">
                     View, create, edit and delete questions
                     belonging to this game.
                 </p>
+
             </div>
 
-            {/* Navigation and create-question actions. */}
+
+            {/* =====================================
+                Navigation and page actions
+                ===================================== */}
+
             <div className="d-flex flex-wrap gap-2 mb-4">
 
                 {/* Return to the My Games page. */}
@@ -116,7 +174,13 @@ function QuestionsPage() {
                 >
                     Create Question
                 </Link>
+
             </div>
+
+
+            {/* =====================================
+                Error and loading feedback
+                ===================================== */}
 
             {/* Display errors returned by the API. */}
             {error && (
@@ -135,9 +199,14 @@ function QuestionsPage() {
                 </p>
             )}
 
-            {/* Display the questions after loading finishes. */}
+
+            {/* =====================================
+                Questions content
+                ===================================== */}
+
             {!loading && !error && (
                 <>
+
                     {questions.length === 0 ? (
 
                         /* Empty state when the game has no questions. */
@@ -150,6 +219,7 @@ function QuestionsPage() {
 
                         /* Responsive table containing the questions. */
                         <div className="card">
+
                             <div className="card-body">
 
                                 <h2 className="h4 mb-3">
@@ -157,6 +227,7 @@ function QuestionsPage() {
                                 </h2>
 
                                 <div className="table-responsive">
+
                                     <table className="table table-striped table-hover align-middle">
 
                                         <caption className="visually-hidden">
@@ -166,19 +237,38 @@ function QuestionsPage() {
                                         </caption>
 
                                         <thead className="table-light">
+
                                             <tr>
-                                                <th scope="col">Question</th>
-                                                <th scope="col">Category</th>
-                                                <th scope="col">Difficulty</th>
-                                                <th scope="col">Correct Answer</th>
-                                                <th scope="col">Actions</th>
+                                                <th scope="col">
+                                                    Question
+                                                </th>
+
+                                                <th scope="col">
+                                                    Category
+                                                </th>
+
+                                                <th scope="col">
+                                                    Difficulty
+                                                </th>
+
+                                                <th scope="col">
+                                                    Correct Answer
+                                                </th>
+
+                                                <th scope="col">
+                                                    Actions
+                                                </th>
                                             </tr>
+
                                         </thead>
 
                                         <tbody>
+
                                             {questions.map(question => (
+
                                                 <tr key={question.questionId}>
 
+                                                    {/* Question text acts as the row heading. */}
                                                     <th scope="row">
                                                         {question.questionText}
                                                     </th>
@@ -200,6 +290,7 @@ function QuestionsPage() {
                                                     </td>
 
                                                     <td>
+
                                                         <div className="d-flex flex-wrap gap-2">
 
                                                             {/* View question details. */}
@@ -223,25 +314,37 @@ function QuestionsPage() {
                                                                 type="button"
                                                                 className="btn btn-sm btn-outline-danger"
                                                                 onClick={() =>
-                                                                    handleDelete(question.questionId)
+                                                                    handleDelete(
+                                                                        question.questionId
+                                                                    )
                                                                 }
                                                             >
                                                                 Delete
                                                             </button>
 
                                                         </div>
+
                                                     </td>
+
                                                 </tr>
+
                                             ))}
+
                                         </tbody>
 
                                     </table>
+
                                 </div>
+
                             </div>
+
                         </div>
+
                     )}
+
                 </>
             )}
+
         </div>
     );
 }
