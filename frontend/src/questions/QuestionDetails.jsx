@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getQuestionById } from "../services/questionApi";
+import { getQuestionById } from "./QuestionService";
 
 function QuestionDetails() {
     // Read the game ID and question ID from the URL.

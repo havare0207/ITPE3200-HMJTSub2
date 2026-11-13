@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 // Import the API service used to retrieve questions.
-import { getQuestions } from "../services/questionApi";
+import { getQuestions } from "./QuestionService";
 
 // Import the search and filtering component.
 import ExploreQuestionFilters from "./ExploreQuestionsFilters.jsx";

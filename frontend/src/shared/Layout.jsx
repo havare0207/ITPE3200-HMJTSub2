@@ -1,4 +1,3 @@
-
 import { Outlet, NavLink } from "react-router-dom";
 import "./Layout.css";
 
@@ -15,7 +14,7 @@ function Layout() {
             {/* Header and primary navigation. */}
             <header>
                 <nav
-                    className="navbar navbar-expand-sm navbar-dark shadow-sm mb-4"
+                    className="navbar navbar-expand-xl navbar-dark shadow-sm mb-4"
                     aria-label="Primary navigation"
                 >
                     <div className="container">
@@ -131,7 +130,7 @@ function Layout() {
                 <main
                     id="main-content"
                     className="pb-3"
-                    tabIndex="-1"
+                    tabIndex={-1}
                 >
                     <Outlet />
                 </main>

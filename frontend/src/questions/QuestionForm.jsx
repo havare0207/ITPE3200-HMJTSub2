@@ -6,7 +6,7 @@ import {
     getQuestionById,
     createQuestion,
     updateQuestion
-} from "../services/questionApi";
+} from "./QuestionService";
 
 // Categories available when creating or editing a question.
 const categories = [
