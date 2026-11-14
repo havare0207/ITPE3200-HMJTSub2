@@ -982,3 +982,300 @@ html {
         font-size: 2.2rem;
     }
 }
+
+/* ==========================================
+   Privacy page
+   ========================================== */
+
+.privacy-page {
+    width: 100%;
+}
+
+.privacy-intro {
+    max-width: 900px;
+}
+
+.privacy-eyebrow {
+    margin-bottom: 0.75rem;
+    color: #1e40af;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.privacy-title {
+    margin-bottom: 1rem;
+    color: #172554;
+    font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+    font-weight: 800;
+    line-height: 1.05;
+}
+
+.privacy-intro-text {
+    color: #334155;
+    font-size: 1.1rem;
+    line-height: 1.7;
+}
+
+
+/* ==========================================
+   Privacy information cards
+   ========================================== */
+
+.privacy-card {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+
+    padding: 2rem;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 1.25rem;
+
+    background-color: #ffffff;
+
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.privacy-card-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+
+    width: 3.5rem;
+    height: 3.5rem;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 1rem;
+
+    background-color: #e0e7ff;
+    color: #1e40af;
+
+    font-size: 1.5rem;
+}
+
+.privacy-card-title {
+    margin-bottom: 1rem;
+
+    color: #172554;
+
+    font-size: 1.7rem;
+    font-weight: 700;
+}
+
+.privacy-card p {
+    color: #334155;
+    line-height: 1.7;
+}
+
+
+/* ==========================================
+   Privacy information note
+   ========================================== */
+
+.privacy-note {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+
+    padding: 1.5rem 1.75rem;
+
+    border: 1px solid #bfdbfe;
+    border-radius: 1rem;
+
+    background-color: #eff6ff;
+}
+
+.privacy-note-icon {
+    color: #1e40af;
+    font-size: 1.4rem;
+}
+
+
+/* ==========================================
+   Responsive Privacy layout
+   ========================================== */
+
+@media (max-width: 767.98px) {
+    .privacy-card {
+        flex-direction: column;
+        padding: 1.5rem;
+    }
+
+    .privacy-card-icon {
+        width: 3rem;
+        height: 3rem;
+    }
+}
+
+/* ==========================================
+   Authentication pages
+   ========================================== */
+
+.auth-page {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0 3rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 620px;
+    padding: 2rem;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 1.5rem;
+
+    background-color: #ffffff;
+
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.09);
+}
+
+
+/* ==========================================
+   Authentication header
+   ========================================== */
+
+.auth-card-header {
+    margin-bottom: 1.75rem;
+}
+
+.auth-icon {
+    display: inline-flex;
+    width: 3.5rem;
+    height: 3.5rem;
+
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 1rem;
+
+    border-radius: 1rem;
+
+    background-color: #e0e7ff;
+    color: #1e40af;
+
+    font-size: 1.5rem;
+}
+
+.auth-eyebrow {
+    margin-bottom: 0.5rem;
+
+    color: #1e40af;
+
+    font-size: 0.8rem;
+    font-weight: 800;
+
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.auth-title {
+    margin-bottom: 0.75rem;
+
+    color: #172554;
+
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.05;
+}
+
+.auth-subtitle {
+    margin-bottom: 0;
+
+    color: #475569;
+
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+
+/* ==========================================
+   Authentication form
+   ========================================== */
+
+.auth-card .form-label {
+    color: #172554;
+    font-weight: 700;
+}
+
+.auth-card .form-control {
+    min-height: 48px;
+
+    border: 1px solid #cbd5e1;
+    border-radius: 0.8rem;
+
+    background-color: #ffffff;
+}
+
+.auth-card .form-control:focus {
+    border-color: #1e40af;
+
+    box-shadow:
+        0 0 0 0.2rem rgba(30, 64, 175, 0.15);
+}
+
+.auth-card .form-text {
+    margin-top: 0.5rem;
+
+    color: #475569;
+    line-height: 1.5;
+}
+
+.auth-submit-button {
+    min-height: 50px;
+
+    border-radius: 0.85rem;
+
+    font-weight: 700;
+}
+
+.auth-submit-button:disabled {
+    cursor: not-allowed;
+}
+
+
+/* ==========================================
+   Authentication navigation
+   ========================================== */
+
+.auth-switch-text {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+
+    text-align: center;
+
+    color: #475569;
+}
+
+.auth-switch-text a {
+    color: #1e40af;
+    font-weight: 700;
+}
+
+.auth-switch-text a:hover {
+    color: #1e3a8a;
+}
+
+
+/* ==========================================
+   Responsive authentication layout
+   ========================================== */
+
+@media (max-width: 575.98px) {
+    .auth-page {
+        padding-top: 0;
+    }
+
+    .auth-card {
+        padding: 1.5rem;
+
+        border-radius: 1.1rem;
+    }
+
+    .auth-title {
+        font-size: 2.25rem;
+    }
+}
