@@ -1,8 +1,19 @@
 import { Outlet, NavLink } from "react-router-dom";
+
+import { useAuth } from "../auth/AuthContext";
+
 import "./Layout.css";
+
 
 // Shared layout used by all pages in the application.
 function Layout() {
+    // Authentication state and logout function.
+    const {
+        email,
+        isAuthenticated,
+        logout
+    } = useAuth();
+
     return (
         <div className="app-layout">
 
@@ -48,6 +59,7 @@ function Layout() {
                             className="collapse navbar-collapse justify-content-between"
                             id="navbarSupportedContent"
                         >
+                            {/* Main application navigation. */}
                             <ul className="navbar-nav flex-grow-1">
 
                                 <li className="nav-item">
@@ -116,13 +128,66 @@ function Layout() {
 
                             </ul>
 
-                            {/* Authentication controls can be added here
-                                when your teammate integrates authentication. */}
+
+                            {/* =====================================
+                                Authentication navigation
+                                ===================================== */}
+
+                            <ul className="navbar-nav ms-auto">
+
+                                {/* Show Login and Register when logged out. */}
+                                {!isAuthenticated ? (
+                                    <>
+                                        <li className="nav-item">
+                                            <NavLink
+                                                to="/login"
+                                                className="nav-link"
+                                            >
+                                                Login
+                                            </NavLink>
+                                        </li>
+
+                                        <li className="nav-item">
+                                            <NavLink
+                                                to="/register"
+                                                className="nav-link"
+                                            >
+                                                Register
+                                            </NavLink>
+                                        </li>
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* Show the authenticated user's email. */}
+                                        <li className="nav-item">
+                                            <span
+                                                className="nav-link navbar-user-email"
+                                                aria-label={`Logged in as ${email}`}
+                                            >
+                                                {email}
+                                            </span>
+                                        </li>
+
+                                        {/* Log the current user out. */}
+                                        <li className="nav-item">
+                                            <button
+                                                type="button"
+                                                className="btn btn-link nav-link navbar-logout-button"
+                                                onClick={logout}
+                                            >
+                                                Logout
+                                            </button>
+                                        </li>
+                                    </>
+                                )}
+
+                            </ul>
 
                         </div>
                     </div>
                 </nav>
             </header>
+
 
             {/* Main page content.
                 Outlet renders the page belonging to the current route. */}
@@ -135,6 +200,7 @@ function Layout() {
                     <Outlet />
                 </main>
             </div>
+
 
             {/* Application footer. */}
             <footer className="border-top footer text-muted">
