@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./shared/Layout";
 import HomePage from "./home/HomePage";
+import PlayPage from "./play/PlayPage";
 import CategoriesPage from "./categories/CategoriesPage";
 import PrivacyPage from "./privacy/PrivacyPage";
 
@@ -27,6 +28,12 @@ function App() {
                     <Route
                         path="/"
                         element={<HomePage />}
+                    />
+
+                    {/* Play game */}
+                    <Route
+                        path="/play"
+                        element={<PlayPage />}
                     />
                    
                     {/* Categories page */}

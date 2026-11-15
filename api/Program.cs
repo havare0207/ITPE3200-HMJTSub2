@@ -1,6 +1,7 @@
 using System.Text;
 using HMJT.DAL;
 using HMJT.Models;
+using HMJT.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -161,6 +162,12 @@ builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 builder.Services.AddScoped<IPresetQuestionRepository, PresetQuestionRepository>();
 builder.Services.AddScoped<INotesRepository, NotesRepository>();
 
+// =====================================
+// Gameplay services
+// =====================================
+
+builder.Services.AddSingleton<GameplaySessionService>();
+builder.Services.AddSingleton<BoardService>();
 
 // =====================================
 // Build application
