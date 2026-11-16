@@ -48,6 +48,18 @@ public class GameStateDto
 
     // General gameplay feedback shown in the UI.
     public string Message { get; set; } = string.Empty;
+
+    // The question the current player must answer.  
+    public ActiveQuestionDto? ActiveQuestion { get; set; }
+
+    // The current player must answer a question if
+    // they are on a question space, or if they are
+    // on a center space and have not yet collected
+    // all category wedges.
+    public bool NeedsCenterCategory { get; set; }
+    public bool NeedsFinalCategory { get; set; }
+    public bool IsFinalQuestion { get; set; }
+
 }
 
 
@@ -66,4 +78,8 @@ public class GamePlayerStateDto
 
     // Category wedges collected by this player.
     public List<string> Wedges { get; set; } = new();
+
+    // The player has not yet collected all wedges.
+    public bool MustLeaveCenterBeforeFinalRetry { get; set; }
+
 }

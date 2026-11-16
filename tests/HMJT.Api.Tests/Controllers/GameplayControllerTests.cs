@@ -1,6 +1,8 @@
 using HMJT.Controllers;
 using HMJT.DTOs.Gameplay;
 using HMJT.Services;
+using HMJT.DAL;
+using HMJT.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,9 +11,123 @@ namespace HMJT.Api.Tests.Controllers;
 public class GameplayControllerTests
 {
     // =====================================
+    // Fake preset question repository
+    // =====================================
+
+    // Provides predictable preset-question data
+    // without requiring a real database in these tests.
+    private class FakePresetQuestionRepository
+        : IPresetQuestionRepository
+    {
+        public Task<IEnumerable<PresetQuestion>> GetAll()
+        {
+            return Task.FromResult<IEnumerable<PresetQuestion>>(
+                new List<PresetQuestion>()
+            );
+        }
+
+        public Task<PresetQuestion?> GetPresetQuestionById(int id)
+        {
+            return Task.FromResult<PresetQuestion?>(
+                new PresetQuestion
+                {
+                    PresetQuestionId = id,
+
+                    Category =
+                        "Java",
+
+                    Difficulty =
+                        Difficulty.Easy,
+
+                    QuestionText =
+                        "Which keyword creates a class?",
+
+                    AnswerA =
+                        "class",
+
+                    AnswerB =
+                        "define",
+
+                    AnswerC =
+                        "struct",
+
+                    AnswerD =
+                        "new",
+
+                    CorrectAnswer =
+                        AnswerOption.A
+                }
+            );
+        }
+
+        public Task<IEnumerable<PresetQuestion>> GetByIds(
+            IEnumerable<int> ids)
+        {
+            return Task.FromResult<IEnumerable<PresetQuestion>>(
+                new List<PresetQuestion>()
+            );
+        }
+
+        public Task<IEnumerable<PresetQuestion>> Search(
+            string? category,
+            Difficulty? difficulty)
+        {
+            return Task.FromResult<IEnumerable<PresetQuestion>>(
+                new List<PresetQuestion>()
+            );
+        }
+
+        // Returns a predictable question for gameplay tests.
+        // The requested category and difficulty are copied
+        // into the returned question.
+        public Task<PresetQuestion?> GetRandomQuestionAsync(
+            string category,
+            Difficulty difficulty)
+        {
+            return Task.FromResult<PresetQuestion?>(
+                new PresetQuestion
+                {
+                    PresetQuestionId = 1,
+
+                    Category =
+                        category,
+
+                    Difficulty =
+                        difficulty,
+
+                    QuestionText =
+                        "Which keyword creates a class?",
+
+                    AnswerA =
+                        "class",
+
+                    AnswerB =
+                        "define",
+
+                    AnswerC =
+                        "struct",
+
+                    AnswerD =
+                        "new",
+
+                    CorrectAnswer =
+                        AnswerOption.A
+                }
+            );
+        }
+    }
+
+
+    // =====================================
     // Helper
     // =====================================
 
+    // Creates a GameplayController with the
+    // services required by the gameplay API.
+    //
+    // A fake preset-question repository is used
+    // so controller tests do not depend on the
+    // real application database.
     private static GameplayController CreateController(
         GameplaySessionService? sessionService = null)
     {
@@ -21,10 +137,14 @@ public class GameplayControllerTests
         var boardService =
             new BoardService();
 
+        var presetQuestionRepository =
+            new FakePresetQuestionRepository();
+
         return new GameplayController(
             NullLogger<GameplayController>.Instance,
             sessionService,
-            boardService
+            boardService,
+            presetQuestionRepository
         );
     }
 
@@ -204,6 +324,12 @@ public class GameplayControllerTests
             gameState.Players[0].BoardSpaceId
         );
 
+        // No question should be active
+        // when the game is first created.
+        Assert.Null(
+            gameState.ActiveQuestion
+        );
+
 
         GameStateDto? storedGame =
             sessionService.GetGame(
@@ -221,7 +347,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void Move_IllegalDestination_ReturnsBadRequest()
+    public async Task Move_IllegalDestination_ReturnsBadRequest()
     {
         // Arrange
         var sessionService =
@@ -307,7 +433,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<GameStateDto> result =
-            controller.Move(
+            await controller.Move(
                 request
             );
 
@@ -317,6 +443,8 @@ public class GameplayControllerTests
             result.Result
         );
 
+        // The player should remain in the center
+        // when an illegal destination is rejected.
         Assert.Equal(
             43,
             gameState.Players[0].BoardSpaceId
@@ -324,195 +452,531 @@ public class GameplayControllerTests
     }
 
 
-// =====================================
-// Start game - invalid difficulty
-// =====================================
+    // =====================================
+    // Start game - invalid difficulty
+    // =====================================
 
-[Fact]
-public void StartGame_InvalidDifficulty_ReturnsBadRequest()
-{
-    // Arrange
-    GameplayController controller =
-        CreateController();
+    [Fact]
+    public void StartGame_InvalidDifficulty_ReturnsBadRequest()
+    {
+        // Arrange
+        GameplayController controller =
+            CreateController();
 
-    var request =
-        new StartGameRequestDto
-        {
-            GameMode = "Standard",
-            Difficulty = "Impossible",
+        var request =
+            new StartGameRequestDto
+            {
+                GameMode = "Standard",
+                Difficulty = "Impossible",
 
-            PlayerNames =
-                new List<string>
-                {
-                    "Alex",
-                    "Emma"
-                },
-
-            CustomGameId = null
-        };
-
-
-    // Act
-    ActionResult<StartGameResponseDto> result =
-        controller.StartGame(request);
-
-
-    // Assert
-    Assert.IsType<BadRequestObjectResult>(
-        result.Result
-    );
-}
-
-
-// =====================================
-// Start game - custom game without ID
-// =====================================
-
-[Fact]
-public void StartGame_CustomGameWithoutId_ReturnsBadRequest()
-{
-    // Arrange
-    GameplayController controller =
-        CreateController();
-
-    var request =
-        new StartGameRequestDto
-        {
-            GameMode = "Custom",
-            Difficulty = "Easy",
-
-            PlayerNames =
-                new List<string>
-                {
-                    "Alex",
-                    "Emma"
-                },
-
-            CustomGameId = null
-        };
-
-
-    // Act
-    ActionResult<StartGameResponseDto> result =
-        controller.StartGame(request);
-
-
-    // Assert
-    Assert.IsType<BadRequestObjectResult>(
-        result.Result
-    );
-}
-
-
-// =====================================
-// Move - wrong player
-// =====================================
-
-[Fact]
-public void Move_WrongPlayer_ReturnsBadRequest()
-{
-    // Arrange
-    var sessionService =
-        new GameplaySessionService();
-
-    GameplayController controller =
-        CreateController(
-            sessionService
-        );
-
-    Guid gameSessionId =
-        Guid.NewGuid();
-
-    var gameState =
-        new GameStateDto
-        {
-            GameSessionId =
-                gameSessionId,
-
-            GameMode =
-                "Standard",
-
-            Difficulty =
-                "Easy",
-
-            CurrentPlayerNumber =
-                1,
-
-            CanRollDice =
-                false,
-
-            DiceRoll =
-                1,
-
-            IsWaitingForMove =
-                true,
-
-            LegalDestinationIds =
-                new List<int>
-                {
-                    27
-                },
-
-            Players =
-                new List<GamePlayerStateDto>
-                {
-                    new GamePlayerStateDto
+                PlayerNames =
+                    new List<string>
                     {
-                        PlayerNumber = 1,
-                        PlayerName = "Alex",
-                        BoardSpaceId = 43
+                        "Alex",
+                        "Emma"
                     },
 
-                    new GamePlayerStateDto
+                CustomGameId = null
+            };
+
+
+        // Act
+        ActionResult<StartGameResponseDto> result =
+            controller.StartGame(request);
+
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(
+            result.Result
+        );
+    }
+
+
+    // =====================================
+    // Start game - custom game without ID
+    // =====================================
+
+    [Fact]
+    public void StartGame_CustomGameWithoutId_ReturnsBadRequest()
+    {
+        // Arrange
+        GameplayController controller =
+            CreateController();
+
+        var request =
+            new StartGameRequestDto
+            {
+                GameMode = "Custom",
+                Difficulty = "Easy",
+
+                PlayerNames =
+                    new List<string>
                     {
-                        PlayerNumber = 2,
-                        PlayerName = "Emma",
-                        BoardSpaceId = 43
+                        "Alex",
+                        "Emma"
+                    },
+
+                CustomGameId = null
+            };
+
+
+        // Act
+        ActionResult<StartGameResponseDto> result =
+            controller.StartGame(request);
+
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(
+            result.Result
+        );
+    }
+
+
+    // =====================================
+    // Move - wrong player
+    // =====================================
+
+    [Fact]
+    public async Task Move_WrongPlayer_ReturnsBadRequest()
+    {
+        // Arrange
+        var sessionService =
+            new GameplaySessionService();
+
+        GameplayController controller =
+            CreateController(
+                sessionService
+            );
+
+        Guid gameSessionId =
+            Guid.NewGuid();
+
+        var gameState =
+            new GameStateDto
+            {
+                GameSessionId =
+                    gameSessionId,
+
+                GameMode =
+                    "Standard",
+
+                Difficulty =
+                    "Easy",
+
+                CurrentPlayerNumber =
+                    1,
+
+                CanRollDice =
+                    false,
+
+                DiceRoll =
+                    1,
+
+                IsWaitingForMove =
+                    true,
+
+                LegalDestinationIds =
+                    new List<int>
+                    {
+                        27
+                    },
+
+                Players =
+                    new List<GamePlayerStateDto>
+                    {
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 1,
+                            PlayerName = "Alex",
+                            BoardSpaceId = 43
+                        },
+
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 2,
+                            PlayerName = "Emma",
+                            BoardSpaceId = 43
+                        }
                     }
-                }
-        };
+            };
 
-    sessionService.AddGame(
-        gameState
-    );
-
-
-    var request =
-        new MoveRequestDto
-        {
-            GameSessionId =
-                gameSessionId,
-
-            // Player 2 tries to move
-            // during Player 1's turn.
-            CurrentPlayerNumber =
-                2,
-
-            BoardSpaceId =
-                27
-        };
-
-
-    // Act
-    ActionResult<GameStateDto> result =
-        controller.Move(
-            request
+        sessionService.AddGame(
+            gameState
         );
 
 
-    // Assert
-    Assert.IsType<BadRequestObjectResult>(
-        result.Result
-    );
+        var request =
+            new MoveRequestDto
+            {
+                GameSessionId =
+                    gameSessionId,
 
-    Assert.Equal(
-        43,
-        gameState.Players[0].BoardSpaceId
-    );
+                // Player 2 tries to move
+                // during Player 1's turn.
+                CurrentPlayerNumber =
+                    2,
 
-    Assert.Equal(
-        43,
-        gameState.Players[1].BoardSpaceId
-    );
-}
+                BoardSpaceId =
+                    27
+            };
+
+
+        // Act
+        ActionResult<GameStateDto> result =
+            await controller.Move(
+                request
+            );
+
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(
+            result.Result
+        );
+
+        // Neither player should have moved
+        // after the invalid request.
+        Assert.Equal(
+            43,
+            gameState.Players[0].BoardSpaceId
+        );
+
+        Assert.Equal(
+            43,
+            gameState.Players[1].BoardSpaceId
+        );
+    }
+
+    // =====================================
+    // Move - category space creates question
+    // =====================================
+
+    [Fact]
+    public async Task Move_CategorySpace_CreatesActiveQuestion()
+    {
+        // Arrange
+        var sessionService =
+            new GameplaySessionService();
+
+        GameplayController controller =
+            CreateController(
+                sessionService
+            );
+
+        Guid gameSessionId =
+            Guid.NewGuid();
+
+        var gameState =
+            new GameStateDto
+            {
+                GameSessionId =
+                    gameSessionId,
+
+                GameMode =
+                    "Standard",
+
+                Difficulty =
+                    "Easy",
+
+                CurrentPlayerNumber =
+                    1,
+
+                CanRollDice =
+                    false,
+
+                DiceRoll =
+                    1,
+
+                IsWaitingForMove =
+                    true,
+
+                // Space 27 is a Java category space
+                // reachable from the center with a roll of 1.
+                LegalDestinationIds =
+                    new List<int>
+                    {
+                        27
+                    },
+
+                Players =
+                    new List<GamePlayerStateDto>
+                    {
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 1,
+                            PlayerName = "Alex",
+                            BoardSpaceId = 43
+                        },
+
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 2,
+                            PlayerName = "Emma",
+                            BoardSpaceId = 43
+                        }
+                    }
+            };
+
+        sessionService.AddGame(
+            gameState
+        );
+
+
+        var request =
+            new MoveRequestDto
+            {
+                GameSessionId =
+                    gameSessionId,
+
+                CurrentPlayerNumber =
+                    1,
+
+                BoardSpaceId =
+                    27
+            };
+
+
+        // Act
+        ActionResult<GameStateDto> result =
+            await controller.Move(
+                request
+            );
+
+
+        // Assert
+        OkObjectResult okResult =
+            Assert.IsType<OkObjectResult>(
+                result.Result
+            );
+
+        GameStateDto returnedState =
+            Assert.IsType<GameStateDto>(
+                okResult.Value
+            );
+
+
+        // The player should have moved
+        // from the center to space 27.
+        Assert.Equal(
+            27,
+            returnedState.Players[0].BoardSpaceId
+        );
+
+
+        // Landing on a category space in
+        // Standard Game should create a question.
+        Assert.NotNull(
+            returnedState.ActiveQuestion
+        );
+
+
+        // Space 27 is a Java category space.
+        Assert.Equal(
+            "Java",
+            returnedState.ActiveQuestion.Category
+        );
+
+
+        // The fake repository returns Easy
+        // because that is the selected game difficulty.
+        Assert.Equal(
+            "Which keyword creates a class?",
+            returnedState.ActiveQuestion.QuestionText
+        );
+
+
+        // The movement phase should now be complete.
+        Assert.False(
+            returnedState.IsWaitingForMove
+        );
+
+        Assert.Empty(
+            returnedState.LegalDestinationIds
+        );
+
+        Assert.Null(
+            returnedState.DiceRoll
+        );
+
+
+        // The player must answer the question
+        // before another dice roll is allowed.
+        Assert.False(
+            returnedState.CanRollDice
+        );
+    }
+
+    // =====================================
+    // Answer question - correct answer
+    // =====================================
+
+    [Fact]
+    public async Task AnswerQuestion_CorrectAnswer_AwardsWedgeAndChangesPlayer()
+    {
+        // Arrange
+        var sessionService =
+            new GameplaySessionService();
+
+        GameplayController controller =
+            CreateController(
+                sessionService
+            );
+
+        Guid gameSessionId =
+            Guid.NewGuid();
+
+        var gameState =
+            new GameStateDto
+            {
+                GameSessionId =
+                    gameSessionId,
+
+                GameMode =
+                    "Standard",
+
+                Difficulty =
+                    "Easy",
+
+                CurrentPlayerNumber =
+                    1,
+
+                CanRollDice =
+                    false,
+
+                DiceRoll =
+                    null,
+
+                IsWaitingForMove =
+                    false,
+
+                LegalDestinationIds =
+                    new List<int>(),
+
+                ActiveQuestion =
+                    new ActiveQuestionDto
+                    {
+                        QuestionId = 1,
+
+                        Category =
+                            "Java",
+
+                        QuestionText =
+                            "Which keyword creates a class?",
+
+                        AnswerA =
+                            "class",
+
+                        AnswerB =
+                            "define",
+
+                        AnswerC =
+                            "struct",
+
+                        AnswerD =
+                            "new"
+                    },
+
+                Players =
+                    new List<GamePlayerStateDto>
+                    {
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 1,
+                            PlayerName = "Alex",
+                            BoardSpaceId = 27,
+                            Wedges = new List<string>()
+                        },
+
+                        new GamePlayerStateDto
+                        {
+                            PlayerNumber = 2,
+                            PlayerName = "Emma",
+                            BoardSpaceId = 43,
+                            Wedges = new List<string>()
+                        }
+                    }
+            };
+
+        sessionService.AddGame(
+            gameState
+        );
+
+
+        var request =
+            new AnswerQuestionRequestDto
+            {
+                GameSessionId =
+                    gameSessionId,
+
+                CurrentPlayerNumber =
+                    1,
+
+                QuestionId =
+                    1,
+
+                // A is the correct answer in
+                // FakePresetQuestionRepository.
+                SelectedAnswer =
+                    "A"
+            };
+
+
+        // Act
+        ActionResult<GameStateDto> result =
+            await controller.AnswerQuestion(
+                request
+            );
+
+
+        // Assert
+        OkObjectResult okResult =
+            Assert.IsType<OkObjectResult>(
+                result.Result
+            );
+
+        GameStateDto returnedState =
+            Assert.IsType<GameStateDto>(
+                okResult.Value
+            );
+
+
+        // The correct Java answer should
+        // award the Java wedge.
+        Assert.Contains(
+            "Java",
+            returnedState.Players[0].Wedges
+        );
+
+
+        // The completed question should no
+        // longer be active.
+        Assert.Null(
+            returnedState.ActiveQuestion
+        );
+
+
+        // The turn should move from
+        // Player 1 to Player 2.
+        Assert.Equal(
+            2,
+            returnedState.CurrentPlayerNumber
+        );
+
+
+        // Player 2 should now be allowed
+        // to begin the next turn.
+        Assert.True(
+            returnedState.CanRollDice
+        );
+
+
+        Assert.False(
+            returnedState.IsWaitingForMove
+        );
+
+
+        Assert.Empty(
+            returnedState.LegalDestinationIds
+        );
+    }
+
 }

@@ -1,6 +1,7 @@
 using HMJT.DTOs.Gameplay;
 using HMJT.Models;
 using HMJT.Services;
+using HMJT.DAL;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HMJT.Controllers;
@@ -12,16 +13,24 @@ public class GameplayController : ControllerBase
     private readonly ILogger<GameplayController> _logger;
     private readonly GameplaySessionService _gameplaySessionService;
     private readonly BoardService _boardService;
-
+    private readonly IPresetQuestionRepository _presetQuestionRepository;
 
     public GameplayController(
         ILogger<GameplayController> logger,
         GameplaySessionService gameplaySessionService,
-        BoardService boardService)
+        BoardService boardService,
+        IPresetQuestionRepository presetQuestionRepository)
     {
         _logger = logger;
-        _gameplaySessionService = gameplaySessionService;
-        _boardService = boardService;
+
+        _gameplaySessionService =
+            gameplaySessionService;
+
+        _boardService =
+            boardService;
+
+        _presetQuestionRepository =
+            presetQuestionRepository;
     }
 
 
@@ -334,6 +343,9 @@ public class GameplayController : ControllerBase
 
                 LegalDestinationIds =
                     new List<int>(),
+                
+                ActiveQuestion =
+                    null,
 
                 IsGameOver =
                     false,
@@ -497,6 +509,33 @@ public class GameplayController : ControllerBase
                 diceRoll
             );
 
+        // Special final retry rule from Subapp 1:
+        // if a player failed the final question,
+        // is still standing in the center,
+        // and rolls a 6, the center itself may
+        // be selected again for an immediate retry.
+        if (
+            currentPlayer.MustLeaveCenterBeforeFinalRetry &&
+            currentPlayer.BoardSpaceId == 43 &&
+            diceRoll == 6
+        )
+        {
+            BoardSpace centerSpace =
+                _boardService.GetSpace(43);
+
+            if (
+                !legalDestinations.Any(
+                    space =>
+                        space.BoardSpaceId == 43
+                )
+            )
+            {
+                legalDestinations.Add(
+                    centerSpace
+                );
+            }
+        }
+
 
         // Update the active game state.
         gameState.DiceRoll =
@@ -562,7 +601,7 @@ public class GameplayController : ControllerBase
     // =====================================
 
     [HttpPost("move")]
-    public ActionResult<GameStateDto> Move(
+    public async Task<ActionResult<GameStateDto>> Move(
         [FromBody] MoveRequestDto request)
     {
         if (!ModelState.IsValid)
@@ -664,11 +703,53 @@ public class GameplayController : ControllerBase
                 request.BoardSpaceId
             );
 
+        // =====================================
+        // Final retry movement
+        // =====================================
+
+        // If the player previously failed the final
+        // question and now leaves the center,
+        // another final attempt becomes available.
+        if (
+            currentPlayer.MustLeaveCenterBeforeFinalRetry &&
+            destination.BoardSpaceId != 43
+        )
+        {
+            currentPlayer.MustLeaveCenterBeforeFinalRetry =
+                false;
+        }
+
+
+        // Special exception from Subapp 1:
+        // rolling a 6 while still in the center allows
+        // the player to choose the center again directly.
+        if (
+            currentPlayer.MustLeaveCenterBeforeFinalRetry &&
+            destination.BoardSpaceId == 43 &&
+            gameState.DiceRoll == 6
+        )
+        {
+            currentPlayer.MustLeaveCenterBeforeFinalRetry =
+                false;
+        }
+
 
         // Move the player.
         currentPlayer.BoardSpaceId =
             destination.BoardSpaceId;
 
+        // Clear any active question from the previous turn.
+        gameState.ActiveQuestion = null;
+
+        // Clear any previous center or final state.
+        gameState.NeedsCenterCategory =
+            false;
+
+        gameState.NeedsFinalCategory =
+            false;
+
+        gameState.IsFinalQuestion =
+            false;
 
         // Movement is now complete.
         gameState.IsWaitingForMove =
@@ -679,6 +760,7 @@ public class GameplayController : ControllerBase
 
         gameState.LegalDestinationIds =
             new List<int>();
+            
 
         gameState.CanRollDice =
             false;
@@ -702,15 +784,146 @@ public class GameplayController : ControllerBase
             BoardSpaceType.Center
         )
         {
-            gameState.Message =
-                $"{currentPlayer.PlayerName} reached the center.";
+            // Center has no fixed category.
+            // The next step depends on whether
+            // the player already owns all six wedges.
+
+            bool hasAllWedges =
+                currentPlayer.Wedges.Count >= 6;
+
+            gameState.ActiveQuestion =
+                null;
+
+            gameState.CanRollDice =
+                false;
+
+
+            // A player with all six wedges is
+            // attempting the final question.
+            if (hasAllWedges)
+            {
+                gameState.NeedsCenterCategory =
+                    false;
+
+                gameState.NeedsFinalCategory =
+                    !currentPlayer
+                        .MustLeaveCenterBeforeFinalRetry;
+
+                gameState.IsFinalQuestion =
+                    false;
+
+
+                if (
+                    currentPlayer
+                        .MustLeaveCenterBeforeFinalRetry
+                )
+                {
+                    gameState.Message =
+                        $"{currentPlayer.PlayerName} reached the center, " +
+                        "but must leave the center before trying " +
+                        "the final question again.";
+                }
+                else
+                {
+                    gameState.Message =
+                        $"{currentPlayer.PlayerName} reached the center. " +
+                        "The other players must choose the final category.";
+                }
+            }
+            else
+            {
+                // During a normal round, a player who
+                // reaches the center chooses the category
+                // for their own question.
+                gameState.NeedsCenterCategory =
+                    true;
+
+                gameState.NeedsFinalCategory =
+                    false;
+
+                gameState.IsFinalQuestion =
+                    false;
+
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} reached the center " +
+                    "and may choose a category.";
+            }
         }
-        else
+        else if (
+            destination.SpaceType == BoardSpaceType.Category &&
+            destination.Category != null
+        )
         {
-            gameState.Message =
-                $"{currentPlayer.PlayerName} moved to space " +
-                $"{destination.BoardSpaceId} " +
-                $"({destination.Category}).";
+            // Standard Game uses preset questions.
+            if (gameState.GameMode.Equals(
+                    "Standard",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Enum.TryParse<Difficulty>(
+                        gameState.Difficulty,
+                        true,
+                        out Difficulty difficulty))
+                {
+                    return BadRequest(new
+                    {
+                        message =
+                            "The selected difficulty is invalid."
+                    });
+                }
+
+                PresetQuestion? question =
+                    await _presetQuestionRepository
+                        .GetRandomQuestionAsync(
+                            destination.Category,
+                            difficulty
+                        );
+
+                if (question == null)
+                {
+                    return BadRequest(new
+                    {
+                        message =
+                            $"No {gameState.Difficulty} question " +
+                            $"was found for {destination.Category}."
+                    });
+                }
+
+                gameState.ActiveQuestion =
+                    new ActiveQuestionDto
+                    {
+                        QuestionId =
+                            question.PresetQuestionId,
+
+                        Category =
+                            question.Category,
+
+                        QuestionText =
+                            question.QuestionText,
+
+                        AnswerA =
+                            question.AnswerA,
+
+                        AnswerB =
+                            question.AnswerB,
+
+                        AnswerC =
+                            question.AnswerC,
+
+                        AnswerD =
+                            question.AnswerD
+                    };
+
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} landed on " +
+                    $"{destination.Category}. Answer the question.";
+            }
+            else
+            {
+                // Custom Game question handling will be added separately.
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} landed on " +
+                    $"{destination.Category}.";
+            }
         }
 
 
@@ -749,4 +962,994 @@ public class GameplayController : ControllerBase
 
         return Ok(gameState);
     }
+
+    // =====================================
+    // Select category after reaching center
+    // =====================================
+
+    [HttpPost("select-center-category")]
+    public async Task<ActionResult<GameStateDto>> SelectCenterCategory(
+        [FromBody] SelectCenterCategoryRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+
+        // Find the active game session.
+        GameStateDto? gameState =
+            _gameplaySessionService.GetGame(
+                request.GameSessionId
+            );
+
+        if (gameState is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The game session could not be found."
+            });
+        }
+
+
+        // The game cannot continue after
+        // a winner has been declared.
+        if (gameState.IsGameOver)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The game has already ended."
+            });
+        }
+
+
+        // Only the current player may make
+        // the center category selection.
+        if (
+            request.CurrentPlayerNumber !=
+            gameState.CurrentPlayerNumber
+        )
+        {
+            return BadRequest(new
+            {
+                message =
+                    "It is not this player's turn."
+            });
+        }
+
+
+        // This endpoint is only valid after
+        // reaching center without all six wedges.
+        if (!gameState.NeedsCenterCategory)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The game is not waiting for a center category."
+            });
+        }
+
+
+        GamePlayerStateDto? currentPlayer =
+            gameState.Players.FirstOrDefault(
+                player =>
+                    player.PlayerNumber ==
+                    gameState.CurrentPlayerNumber
+            );
+
+        if (currentPlayer is null)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "The current player could not be found."
+                }
+            );
+        }
+
+
+        // A center category may only be selected
+        // while the player is physically in center.
+        if (currentPlayer.BoardSpaceId != 43)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The current player is not in the center."
+            });
+        }
+
+
+        // A player with all six wedges must use
+        // the final-question category flow instead.
+        if (currentPlayer.Wedges.Count >= 6)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "A player with all six wedges must use " +
+                    "the final category selection."
+            });
+        }
+
+
+        string[] validCategories =
+        {
+            "Java",
+            "JavaScript",
+            "HTML/CSS",
+            "Python",
+            "Game History",
+            "C#"
+        };
+
+
+        string? category =
+            validCategories.FirstOrDefault(
+                validCategory =>
+                    validCategory.Equals(
+                        request.Category,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+            );
+
+        if (category is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The selected category is invalid."
+            });
+        }
+
+
+        // Standard Game currently uses
+        // the preset question repository.
+        if (!gameState.GameMode.Equals(
+                "Standard",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Custom Game center questions are not supported yet."
+            });
+        }
+
+
+        if (!Enum.TryParse<Difficulty>(
+                gameState.Difficulty,
+                true,
+                out Difficulty difficulty))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The selected difficulty is invalid."
+            });
+        }
+
+
+        PresetQuestion? question =
+            await _presetQuestionRepository
+                .GetRandomQuestionAsync(
+                    category,
+                    difficulty
+                );
+
+        if (question is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    $"No {gameState.Difficulty} question " +
+                    $"was found for {category}."
+            });
+        }
+
+
+        // Create a normal question using the
+        // category selected by the current player.
+        gameState.ActiveQuestion =
+            new ActiveQuestionDto
+            {
+                QuestionId =
+                    question.PresetQuestionId,
+
+                Category =
+                    question.Category,
+
+                QuestionText =
+                    question.QuestionText,
+
+                AnswerA =
+                    question.AnswerA,
+
+                AnswerB =
+                    question.AnswerB,
+
+                AnswerC =
+                    question.AnswerC,
+
+                AnswerD =
+                    question.AnswerD
+            };
+
+
+        // The center category selection
+        // has now been completed.
+        gameState.NeedsCenterCategory =
+            false;
+
+        gameState.NeedsFinalCategory =
+            false;
+
+        gameState.IsFinalQuestion =
+            false;
+
+        gameState.CanRollDice =
+            false;
+
+        gameState.Message =
+            $"{currentPlayer.PlayerName} chose {category} " +
+            "in the center. Answer the question.";
+
+
+        bool updated =
+            _gameplaySessionService.UpdateGame(
+                gameState
+            );
+
+        if (!updated)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "Unable to update the game session."
+                }
+            );
+        }
+
+
+        _logger.LogInformation(
+            "Player {PlayerNumber} selected {Category} " +
+            "in the center in game session {GameSessionId}.",
+            currentPlayer.PlayerNumber,
+            category,
+            gameState.GameSessionId
+        );
+
+
+        return Ok(gameState);
+    }
+
+    // =====================================
+    // Select final category
+    // =====================================
+
+    [HttpPost("select-final-category")]
+    public async Task<ActionResult<GameStateDto>> SelectFinalCategory(
+        [FromBody] SelectCenterCategoryRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+
+        GameStateDto? gameState =
+            _gameplaySessionService.GetGame(
+                request.GameSessionId
+            );
+
+        if (gameState is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The game session could not be found."
+            });
+        }
+
+
+        if (gameState.IsGameOver)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The game has already ended."
+            });
+        }
+
+
+        if (
+            request.CurrentPlayerNumber !=
+            gameState.CurrentPlayerNumber
+        )
+        {
+            return BadRequest(new
+            {
+                message =
+                    "It is not this player's turn."
+            });
+        }
+
+
+        // This endpoint is only valid while
+        // waiting for a final category.
+        if (!gameState.NeedsFinalCategory)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The game is not waiting for a final category."
+            });
+        }
+
+
+        GamePlayerStateDto? currentPlayer =
+            gameState.Players.FirstOrDefault(
+                player =>
+                    player.PlayerNumber ==
+                    gameState.CurrentPlayerNumber
+            );
+
+        if (currentPlayer is null)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "The current player could not be found."
+                }
+            );
+        }
+
+
+        // The final question can only be started
+        // while the player is in the center.
+        if (currentPlayer.BoardSpaceId != 43)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The current player is not in the center."
+            });
+        }
+
+
+        // The player must have collected
+        // all six category wedges.
+        if (currentPlayer.Wedges.Count < 6)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The player has not collected all six wedges."
+            });
+        }
+
+
+        // After failing a final question,
+        // the player cannot immediately retry.
+        if (currentPlayer.MustLeaveCenterBeforeFinalRetry)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The player must leave the center before " +
+                    "trying the final question again."
+            });
+        }
+
+
+        string[] validCategories =
+        {
+            "Java",
+            "JavaScript",
+            "HTML/CSS",
+            "Python",
+            "Game History",
+            "C#"
+        };
+
+
+        string? category =
+            validCategories.FirstOrDefault(
+                validCategory =>
+                    validCategory.Equals(
+                        request.Category,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+            );
+
+        if (category is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The selected category is invalid."
+            });
+        }
+
+
+        if (!gameState.GameMode.Equals(
+                "Standard",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Custom Game final questions are not supported yet."
+            });
+        }
+
+
+        if (!Enum.TryParse<Difficulty>(
+                gameState.Difficulty,
+                true,
+                out Difficulty difficulty))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The selected difficulty is invalid."
+            });
+        }
+
+
+        PresetQuestion? question =
+            await _presetQuestionRepository
+                .GetRandomQuestionAsync(
+                    category,
+                    difficulty
+                );
+
+        if (question is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    $"No {gameState.Difficulty} question " +
+                    $"was found for {category}."
+            });
+        }
+
+
+        // Create the final question.
+        gameState.ActiveQuestion =
+            new ActiveQuestionDto
+            {
+                QuestionId =
+                    question.PresetQuestionId,
+
+                Category =
+                    question.Category,
+
+                QuestionText =
+                    question.QuestionText,
+
+                AnswerA =
+                    question.AnswerA,
+
+                AnswerB =
+                    question.AnswerB,
+
+                AnswerC =
+                    question.AnswerC,
+
+                AnswerD =
+                    question.AnswerD
+            };
+
+
+        // Final category selection is complete.
+        gameState.NeedsCenterCategory =
+            false;
+
+        gameState.NeedsFinalCategory =
+            false;
+
+        gameState.IsFinalQuestion =
+            true;
+
+        gameState.CanRollDice =
+            false;
+
+        gameState.Message =
+            $"Final question for {currentPlayer.PlayerName}: " +
+            $"{category}.";
+
+
+        bool updated =
+            _gameplaySessionService.UpdateGame(
+                gameState
+            );
+
+        if (!updated)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "Unable to update the game session."
+                }
+            );
+        }
+
+
+        _logger.LogInformation(
+            "Player {PlayerNumber} started final question " +
+            "in category {Category} in game session {GameSessionId}.",
+            currentPlayer.PlayerNumber,
+            category,
+            gameState.GameSessionId
+        );
+
+
+        return Ok(gameState);
+    }
+
+    // =====================================
+    // Reset game
+    // =====================================
+
+    [HttpDelete("reset/{gameSessionId:guid}")]
+    public ActionResult ResetGame(
+        Guid gameSessionId)
+    {
+        GameStateDto? gameState =
+            _gameplaySessionService.GetGame(
+                gameSessionId
+            );
+
+        if (gameState is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The game session could not be found."
+            });
+        }
+
+
+        bool removed =
+            _gameplaySessionService.RemoveGame(
+                gameSessionId
+            );
+
+        if (!removed)
+        {
+            _logger.LogError(
+                "Unable to reset game session {GameSessionId}.",
+                gameSessionId
+            );
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "Unable to reset the game session."
+                }
+            );
+        }
+
+
+        _logger.LogInformation(
+            "Game session {GameSessionId} was reset.",
+            gameSessionId
+        );
+
+
+        return NoContent();
+    }
+
+
+    // =====================================
+    // Answer the active question
+    // =====================================
+
+    [HttpPost("answer")]
+    public async Task<ActionResult<GameStateDto>> AnswerQuestion(
+        [FromBody] AnswerQuestionRequestDto request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+
+        // Find the active game session.
+        GameStateDto? gameState =
+            _gameplaySessionService.GetGame(
+                request.GameSessionId
+            );
+
+        if (gameState is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The game session could not be found."
+            });
+        }
+
+
+        // The game cannot continue after
+        // a winner has been declared.
+        if (gameState.IsGameOver)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The game has already ended."
+            });
+        }
+
+
+        // Only the current player may answer
+        // the active gameplay question.
+        if (
+            request.CurrentPlayerNumber !=
+            gameState.CurrentPlayerNumber
+        )
+        {
+            return BadRequest(new
+            {
+                message =
+                    "It is not this player's turn."
+            });
+        }
+
+
+        // A question must currently be active.
+        if (gameState.ActiveQuestion is null)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "There is no active question to answer."
+            });
+        }
+
+
+        // Prevent a request from answering
+        // a different question than the one
+        // currently shown to the player.
+        if (
+            request.QuestionId !=
+            gameState.ActiveQuestion.QuestionId
+        )
+        {
+            return BadRequest(new
+            {
+                message =
+                    "The submitted question does not match " +
+                    "the active question."
+            });
+        }
+
+
+        // Custom Game question handling will
+        // be connected separately later.
+        if (!gameState.GameMode.Equals(
+                "Standard",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Custom Game answers are not supported yet."
+            });
+        }
+
+
+        // Retrieve the full preset question from
+        // the server so CorrectAnswer is never
+        // exposed to the frontend.
+        PresetQuestion? question =
+            await _presetQuestionRepository
+                .GetPresetQuestionById(
+                    request.QuestionId
+                );
+
+        if (question is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The active question could not be found."
+            });
+        }
+
+
+        // Convert A, B, C or D from the request
+        // into the AnswerOption enum used by
+        // the question model.
+        if (!Enum.TryParse<AnswerOption>(
+                request.SelectedAnswer,
+                true,
+                out AnswerOption selectedAnswer))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Selected answer must be A, B, C or D."
+            });
+        }
+
+
+        bool isCorrect =
+            selectedAnswer ==
+            question.CorrectAnswer;
+
+
+        // Find the current player.
+        GamePlayerStateDto? currentPlayer =
+            gameState.Players.FirstOrDefault(
+                player =>
+                    player.PlayerNumber ==
+                    gameState.CurrentPlayerNumber
+            );
+
+        if (currentPlayer is null)
+        {
+            _logger.LogError(
+                "Current player {PlayerNumber} was not found " +
+                "in game session {GameSessionId}.",
+                gameState.CurrentPlayerNumber,
+                gameState.GameSessionId
+            );
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "The current player could not be found."
+                }
+            );
+        }
+
+
+        string category =
+            gameState.ActiveQuestion.Category;
+
+        // =====================================
+        // Final question
+        // =====================================
+
+        if (gameState.IsFinalQuestion)
+        {
+            // The final question is now complete.
+            gameState.ActiveQuestion =
+                null;
+
+            gameState.IsFinalQuestion =
+                false;
+
+            gameState.NeedsCenterCategory =
+                false;
+
+            gameState.NeedsFinalCategory =
+                false;
+
+            gameState.DiceRoll =
+                null;
+
+            gameState.IsWaitingForMove =
+                false;
+
+            gameState.LegalDestinationIds =
+                new List<int>();
+
+
+            // A correct final answer wins the game.
+            if (isCorrect)
+            {
+                gameState.IsGameOver =
+                    true;
+
+                gameState.WinnerName =
+                    currentPlayer.PlayerName;
+
+                gameState.CanRollDice =
+                    false;
+
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} answered the final " +
+                    "question correctly and won the game!";
+            }
+            else
+            {
+                // The player must leave the center
+                // before another normal final attempt.
+                currentPlayer.MustLeaveCenterBeforeFinalRetry =
+                    true;
+
+
+                // The failed final attempt ends this player's turn.
+                int currentPlayerIndex =
+                    gameState.Players.FindIndex(
+                        player =>
+                            player.PlayerNumber ==
+                            gameState.CurrentPlayerNumber
+                    );
+
+                int nextPlayerIndex =
+                    (currentPlayerIndex + 1) %
+                    gameState.Players.Count;
+
+                GamePlayerStateDto nextPlayer =
+                    gameState.Players[nextPlayerIndex];
+
+                gameState.CurrentPlayerNumber =
+                    nextPlayer.PlayerNumber;
+
+                gameState.CanRollDice =
+                    true;
+
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} answered the final " +
+                    "question incorrectly and must leave the center " +
+                    "before trying again. " +
+                    $"{nextPlayer.PlayerName}'s turn.";
+            }
+        }
+
+
+        // =====================================
+        // Normal question
+        // =====================================
+
+        else
+        {
+            bool awardedWedge =
+                false;
+
+
+            // A correct normal answer awards the
+            // category wedge if it is not already owned.
+            if (isCorrect)
+            {
+                bool alreadyHasWedge =
+                    currentPlayer.Wedges.Any(
+                        wedge =>
+                            wedge.Equals(
+                                category,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                    );
+
+                if (!alreadyHasWedge)
+                {
+                    currentPlayer.Wedges.Add(
+                        category
+                    );
+
+                    awardedWedge =
+                        true;
+                }
+            }
+
+
+            // The normal question is complete.
+            gameState.ActiveQuestion =
+                null;
+
+            gameState.IsFinalQuestion =
+                false;
+
+            gameState.NeedsCenterCategory =
+                false;
+
+            gameState.NeedsFinalCategory =
+                false;
+
+
+            // Move to the next player.
+            int currentPlayerIndex =
+                gameState.Players.FindIndex(
+                    player =>
+                        player.PlayerNumber ==
+                        gameState.CurrentPlayerNumber
+                );
+
+            int nextPlayerIndex =
+                (currentPlayerIndex + 1) %
+                gameState.Players.Count;
+
+            GamePlayerStateDto nextPlayer =
+                gameState.Players[nextPlayerIndex];
+
+            gameState.CurrentPlayerNumber =
+                nextPlayer.PlayerNumber;
+
+
+            // The next player may begin their turn.
+            gameState.CanRollDice =
+                true;
+
+            gameState.DiceRoll =
+                null;
+
+            gameState.IsWaitingForMove =
+                false;
+
+            gameState.LegalDestinationIds =
+                new List<int>();
+
+
+            if (isCorrect && awardedWedge)
+            {
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} answered correctly " +
+                    $"and earned the {category} wedge. " +
+                    $"{nextPlayer.PlayerName}'s turn.";
+            }
+            else if (isCorrect)
+            {
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} answered correctly. " +
+                    $"The {category} wedge was already collected. " +
+                    $"{nextPlayer.PlayerName}'s turn.";
+            }
+            else
+            {
+                gameState.Message =
+                    $"{currentPlayer.PlayerName} answered incorrectly. " +
+                    $"{nextPlayer.PlayerName}'s turn.";
+            }
+        }
+
+
+
+        //HER
+        // Store the updated game state.
+        bool updated =
+            _gameplaySessionService.UpdateGame(
+                gameState
+            );
+
+        if (!updated)
+        {
+            _logger.LogError(
+                "Unable to update game session {GameSessionId} " +
+                "after answering a question.",
+                gameState.GameSessionId
+            );
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new
+                {
+                    message =
+                        "Unable to update the game session."
+                }
+            );
+        }
+
+
+        _logger.LogInformation(
+            "Player {PlayerNumber} answered question {QuestionId} " +
+            "in game session {GameSessionId}. Correct: {IsCorrect}.",
+            currentPlayer.PlayerNumber,
+            question.PresetQuestionId,
+            gameState.GameSessionId,
+            isCorrect
+        );
+
+
+        return Ok(gameState);
+    }
+
 }

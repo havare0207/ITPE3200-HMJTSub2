@@ -4,6 +4,8 @@ import type {
     GamePlayerState
 } from "./GameService";
 
+import WedgeToken from "./WedgeToken";
+
 // =====================================
 // Board types
 // =====================================
@@ -598,10 +600,12 @@ function GameBoard({
                                         .filter(Boolean)
                                         .join(" ")}
                                     style={style}
+                                    role="img"
                                     aria-label={
                                         `${player.playerName}, ` +
                                         `Player ${player.playerNumber}, ` +
-                                        `board space ${player.boardSpaceId}` +
+                                        `board space ${player.boardSpaceId}, ` +
+                                        `${player.wedges.length} of 6 wedges` +
                                         (
                                             isCurrentPlayer
                                                 ? ", current player"
@@ -609,9 +613,13 @@ function GameBoard({
                                         )
                                     }
                                 >
-                                    <span aria-hidden="true">
-                                        {player.playerNumber}
-                                    </span>
+                                    <WedgeToken
+                                        wedges={player.wedges}
+                                        size="board"
+                                        playerNumber={
+                                            player.playerNumber
+                                        }
+                                    />
                                 </div>
                             );
                         })}

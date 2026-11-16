@@ -8,9 +8,13 @@ import {
 import { useAuth } from "../auth/AuthContext";
 
 import {
+    answerQuestion,
     confirmStartGame,
     movePlayer,
+    resetGame,
     rollDice,
+    selectCenterCategory,
+    selectFinalCategory,
     startGame,
     type GamePlayer,
     type GameState
@@ -18,7 +22,7 @@ import {
 
 import GameBoard from "./GameBoard";
 
-
+import WedgeToken from "./WedgeToken";
 
 // =====================================
 // Types
@@ -69,9 +73,37 @@ function PlayPage() {
     const starterScreenRef =
         useRef<HTMLDivElement>(null);
 
+    // Used to move keyboard focus into
+    // the final center confirmation dialog.
+    const finalCenterDialogRef =
+        useRef<HTMLDivElement>(null);
+
+    // Used to move keyboard focus into
+    // the winner dialog.
+    const winnerDialogRef =
+        useRef<HTMLDivElement>(null);
+
      
     const [gameState, setGameState] =
         useState<GameState | null>(null);
+
+    // Stores a pending move into the center
+    // while the player confirms the final attempt.
+    const [pendingCenterMove, setPendingCenterMove] =
+        useState<number | null>(null);
+
+    // Shows a message when a player has
+    // collected all six wedges and must
+    // reach the center for the final question.
+    const [
+        showFinalReadyPopup,
+        setShowFinalReadyPopup
+    ] = useState(false);
+
+    const [
+        finalReadyPlayerName,
+        setFinalReadyPlayerName
+    ] = useState("");
 
 
     // Move focus when the starter confirmation
@@ -81,6 +113,51 @@ function PlayPage() {
             starterScreenRef.current?.focus();
         }
     }, [showStarterScreen]);
+
+    // Move focus into the final center
+    // confirmation dialog when it opens.
+    useEffect(() => {
+        if (pendingCenterMove !== null) {
+            finalCenterDialogRef.current?.focus();
+        }
+    }, [pendingCenterMove]);
+
+
+    // Move focus into the winner dialog
+    // when the game has ended.
+    useEffect(() => {
+        if (gameState?.isGameOver) {
+            winnerDialogRef.current?.focus();
+        }
+    }, [gameState?.isGameOver]);
+
+    // Allow the final center confirmation dialog
+    // to be closed with the Escape key.
+    useEffect(() => {
+        if (pendingCenterMove === null) {
+            return;
+        }
+
+        function handleKeyDown(
+            event: KeyboardEvent
+        ): void {
+            if (event.key === "Escape") {
+                setPendingCenterMove(null);
+            }
+        }
+
+        window.addEventListener(
+            "keydown",
+            handleKeyDown
+        );
+
+        return () => {
+            window.removeEventListener(
+                "keydown",
+                handleKeyDown
+            );
+        };
+    }, [pendingCenterMove]);
 
 
     // =====================================
@@ -283,7 +360,7 @@ function PlayPage() {
     // Move player
     // =====================================
 
-    async function handleMovePlayer(
+    async function performMovePlayer(
         boardSpaceId: number
     ): Promise<void> {
         if (!gameState) {
@@ -304,11 +381,257 @@ function PlayPage() {
             });
 
             setGameState(response);
+            setPendingCenterMove(null);
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
                     : "Unable to move the player."
+            );
+        }
+    }
+
+
+    function handleMovePlayer(
+        boardSpaceId: number
+    ): void {
+        if (!gameState) {
+            return;
+        }
+
+        const currentPlayer =
+            gameState.players.find(
+                (player) =>
+                    player.playerNumber ===
+                    gameState.currentPlayerNumber
+            );
+
+        if (!currentPlayer) {
+            return;
+        }
+
+
+        // A player with all six wedges must confirm
+        // before entering the center for a final attempt.
+        if (
+            boardSpaceId === 43 &&
+            currentPlayer.wedges.length >= 6
+        ) {
+            setPendingCenterMove(
+                boardSpaceId
+            );
+
+            return;
+        }
+
+
+        void performMovePlayer(
+            boardSpaceId
+        );
+    }
+
+    // =====================================
+    // Answer question
+    // =====================================
+
+    async function handleAnswerQuestion(
+        selectedAnswer: "A" | "B" | "C" | "D"
+    ): Promise<void> {
+        if (
+            !gameState ||
+            !gameState.activeQuestion
+        ) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const answeringPlayerNumber =
+                gameState.currentPlayerNumber;
+
+            const playerBeforeAnswer =
+                gameState.players.find(
+                    (player) =>
+                        player.playerNumber ===
+                        answeringPlayerNumber
+                );
+
+
+            const response = await answerQuestion({
+                gameSessionId:
+                    gameState.gameSessionId,
+
+                currentPlayerNumber:
+                    answeringPlayerNumber,
+
+                questionId:
+                    gameState.activeQuestion.questionId,
+
+                selectedAnswer
+            });
+
+
+            const playerAfterAnswer =
+                response.players.find(
+                    (player) =>
+                        player.playerNumber ===
+                        answeringPlayerNumber
+                );
+
+
+            // Show a notification when the player
+            // receives their sixth and final wedge.
+            if (
+                playerBeforeAnswer &&
+                playerAfterAnswer &&
+                playerBeforeAnswer.wedges.length < 6 &&
+                playerAfterAnswer.wedges.length >= 6 &&
+                !response.isGameOver
+            ) {
+                setFinalReadyPlayerName(
+                    playerAfterAnswer.playerName
+                );
+
+                setShowFinalReadyPopup(true);
+            }
+
+
+            setGameState(response);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to submit the answer."
+            );
+        }
+    }
+
+    // =====================================
+    // Select center category
+    // =====================================
+
+    async function handleCenterCategory(
+        category:
+            | "Java"
+            | "JavaScript"
+            | "HTML/CSS"
+            | "Python"
+            | "Game History"
+            | "C#"
+    ): Promise<void> {
+        if (!gameState) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const response = await selectCenterCategory({
+                gameSessionId:
+                    gameState.gameSessionId,
+
+                currentPlayerNumber:
+                    gameState.currentPlayerNumber,
+
+                category
+            });
+
+            setGameState(response);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to select the center category."
+            );
+        }
+    }
+
+    // =====================================
+    // Select final category
+    // =====================================
+
+    async function handleFinalCategory(
+        category:
+            | "Java"
+            | "JavaScript"
+            | "HTML/CSS"
+            | "Python"
+            | "Game History"
+            | "C#"
+    ): Promise<void> {
+        if (!gameState) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const response = await selectFinalCategory({
+                gameSessionId:
+                    gameState.gameSessionId,
+
+                currentPlayerNumber:
+                    gameState.currentPlayerNumber,
+
+                category
+            });
+
+            setGameState(response);
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to select the final category."
+            );
+        }
+    }
+    
+    // =====================================
+    // Reset game
+    // =====================================
+
+    async function handleResetGame(): Promise<void> {
+        if (!gameState) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            await resetGame(
+                gameState.gameSessionId
+            );
+
+            // Remove the active gameplay state.
+            setGameState(null);
+
+            // Clear temporary gameplay state.
+            setPendingCenterMove(null);
+
+            // Clear starter state.
+            setPlayers([]);
+            setStartingPlayerNumber(null);
+            setShowStarterScreen(false);
+
+            // Clear the setup fields so a completely
+            // new game can be configured.
+            setPlayerNames([
+                "",
+                "",
+                "",
+                "",
+                "",
+                ""
+            ]);
+
+            setGameMode("Standard");
+            setDifficulty("Easy");
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to reset the game."
             );
         }
     }
@@ -339,14 +662,18 @@ function PlayPage() {
                         </h1>
                     </div>
 
-                    {/* Reset will be connected to the API later. */}
-                    <button
-                        type="button"
-                        className="btn btn-outline-danger"
-                        disabled
-                    >
-                        Reset Game
-                    </button>
+                    {/* Reset the active game and return to setup. */}
+                   {!gameState.isGameOver && (
+                        <button
+                            type="button"
+                            className="btn btn-outline-danger"
+                            onClick={() =>
+                                void handleResetGame()
+                            }
+                        >
+                            Reset Game
+                        </button>
+                    )}
 
                 </div>
 
@@ -397,16 +724,39 @@ function PlayPage() {
                         aria-label="Game information"
                     >
 
-                        {/* Current player information. */}
+                        {/* =====================================
+                            Current player information
+                            ===================================== */}
+
                         <section className="gameplay-sidebar-card">
 
                             <h2>
                                 Current Player
                             </h2>
 
-                            <h3>
-                                {currentPlayer?.playerName}
-                            </h3>
+                            {currentPlayer && (
+                                <div className="wedge-progress-visual">
+                                    <WedgeToken
+                                        wedges={currentPlayer.wedges}
+                                        size="small"
+                                        ariaLabel={
+                                            `${currentPlayer.playerName} has ` +
+                                            `${currentPlayer.wedges.length} of 6 wedges`
+                                        }
+                                    />
+
+                                    <div>
+                                        <h3>
+                                            {currentPlayer.playerName}
+                                        </h3>
+
+                                        <p>
+                                            {currentPlayer.wedges.length}
+                                            /6 wedges collected
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <p>
                                 Player{" "}
@@ -430,6 +780,8 @@ function PlayPage() {
                             </p>
 
 
+                            {/* The current player may roll only
+                                when the backend allows it. */}
                             {gameState.canRollDice && (
                                 <>
                                     <p>
@@ -437,8 +789,6 @@ function PlayPage() {
                                         roll the dice.
                                     </p>
 
-                                    {/* Dice functionality will be
-                                        connected to the API next. */}
                                     <button
                                         type="button"
                                         className="btn btn-primary w-100"
@@ -449,6 +799,9 @@ function PlayPage() {
                                 </>
                             )}
 
+
+                            {/* Show the dice result while the
+                                player is choosing a destination. */}
                             {gameState.isWaitingForMove &&
                                 gameState.diceRoll !== null && (
                                     <div
@@ -472,7 +825,322 @@ function PlayPage() {
 
                         </section>
 
-                        
+                        {/* =====================================
+                            Center category selection
+                            ===================================== */}
+
+                        {gameState.needsCenterCategory && (
+                            <section
+                                className="gameplay-sidebar-card"
+                                aria-labelledby="centerCategoryHeading"
+                            >
+                                <h2 id="centerCategoryHeading">
+                                    Choose Category
+                                </h2>
+
+                                <p>
+                                    You reached the center.
+                                    Choose the category for your question.
+                                </p>
+
+                                <div
+                                    className="game-answer-grid"
+                                    role="group"
+                                    aria-label="Choose question category"
+                                >
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("Java")
+                                        }
+                                    >
+                                        Java
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("JavaScript")
+                                        }
+                                    >
+                                        JavaScript
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("HTML/CSS")
+                                        }
+                                    >
+                                        HTML/CSS
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("Python")
+                                        }
+                                    >
+                                        Python
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("Game History")
+                                        }
+                                    >
+                                        Game History
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleCenterCategory("C#")
+                                        }
+                                    >
+                                        C#
+                                    </button>
+                                </div>
+                            </section>
+                        )}            
+
+                        {/* =====================================
+                            Final category selection
+                            ===================================== */}
+
+                        {gameState.needsFinalCategory && (
+                            <section
+                                className="gameplay-sidebar-card"
+                                aria-labelledby="finalCategoryHeading"
+                            >
+                                <h2 id="finalCategoryHeading">
+                                    Final Turn
+                                </h2>
+
+                                <p>
+                                    The other players must choose
+                                    the category for the final question.
+                                </p>
+
+                                <div
+                                    className="game-answer-grid"
+                                    role="group"
+                                    aria-label="Choose final question category"
+                                >
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("Java")
+                                        }
+                                    >
+                                        Java
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("JavaScript")
+                                        }
+                                    >
+                                        JavaScript
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("HTML/CSS")
+                                        }
+                                    >
+                                        HTML/CSS
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("Python")
+                                        }
+                                    >
+                                        Python
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("Game History")
+                                        }
+                                    >
+                                        Game History
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleFinalCategory("C#")
+                                        }
+                                    >
+                                        C#
+                                    </button>
+                                </div>
+                            </section>
+                        )}
+
+
+                        {/* =====================================
+                            Active question
+                            ===================================== */}
+
+                        {gameState.activeQuestion && (
+                            <section
+                                className="gameplay-sidebar-card game-question-card"
+                                aria-labelledby="activeQuestionHeading"
+                            >
+
+                                {/* The category is visible as text,
+                                    so the question does not depend
+                                    only on the board color. */}
+                                <p className="game-question-category">
+                                    {gameState.activeQuestion.category}
+                                </p>
+
+
+                                <h2 id="activeQuestionHeading">
+                                    Question
+                                </h2>
+
+
+                                <p className="game-question-text">
+                                    {
+                                        gameState
+                                            .activeQuestion
+                                            .questionText
+                                    }
+                                </p>
+
+
+                                {/* Answer buttons submit the selected
+                                answer to the backend API. */}
+                                <div
+                                    className="game-answer-grid"
+                                    role="group"
+                                    aria-label="Answer choices"
+                                >
+
+                                    {/* Answer A */}
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleAnswerQuestion("A")
+                                        }
+                                    >
+                                        <span
+                                            className="game-answer-letter"
+                                            aria-hidden="true"
+                                        >
+                                            A
+                                        </span>
+
+                                        <span>
+                                            {
+                                                gameState
+                                                    .activeQuestion
+                                                    .answerA
+                                            }
+                                        </span>
+                                    </button>
+
+
+                                    {/* Answer B */}
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleAnswerQuestion("B")
+                                        }
+                                    >
+                                        <span
+                                            className="game-answer-letter"
+                                            aria-hidden="true"
+                                        >
+                                            B
+                                        </span>
+
+                                        <span>
+                                            {
+                                                gameState
+                                                    .activeQuestion
+                                                    .answerB
+                                            }
+                                        </span>
+                                    </button>
+
+
+                                    {/* Answer C */}
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleAnswerQuestion("C")
+                                        }
+                                    >
+                                        <span
+                                            className="game-answer-letter"
+                                            aria-hidden="true"
+                                        >
+                                            C
+                                        </span>
+
+                                        <span>
+                                            {
+                                                gameState
+                                                    .activeQuestion
+                                                    .answerC
+                                            }
+                                        </span>
+                                    </button>
+
+
+                                    {/* Answer D */}
+                                    <button
+                                        type="button"
+                                        className="game-answer-button"
+                                        onClick={() =>
+                                            handleAnswerQuestion("D")
+                                        }
+                                    >
+                                        <span
+                                            className="game-answer-letter"
+                                            aria-hidden="true"
+                                        >
+                                            D
+                                        </span>
+
+                                        <span>
+                                            {
+                                                gameState
+                                                    .activeQuestion
+                                                    .answerD
+                                            }
+                                        </span>
+                                    </button>
+
+                                </div>
+
+                            </section>
+                        )}
 
 
                         {/* =====================================
@@ -501,6 +1169,15 @@ function PlayPage() {
                                                     : "player-token-item"
                                             }
                                         >
+                                            <WedgeToken
+                                                wedges={player.wedges}
+                                                size="small"
+                                                ariaLabel={
+                                                    `${player.playerName} has ` +
+                                                    `${player.wedges.length} of 6 wedges`
+                                                }
+                                            />
+
                                             <div className="player-token-text">
 
                                                 <p className="player-token-name">
@@ -535,8 +1212,171 @@ function PlayPage() {
                         </section>
 
                     </aside>
-
                 </div>
+
+                    {/* =====================================
+                        Final round ready modal
+                        ===================================== */}
+
+                    {showFinalReadyPopup && (
+                        <div
+                            className="game-modal-backdrop"
+                            role="presentation"
+                        >
+                            <section
+                                className="game-modal"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="finalReadyHeading"
+                                aria-describedby="finalReadyDescription"
+                            >
+                                <p className="game-modal-eyebrow">
+                                    FINAL ROUND UNLOCKED
+                                </p>
+
+                                <h2 id="finalReadyHeading">
+                                    All six wedges collected!
+                                </h2>
+
+                                <p id="finalReadyDescription">
+                                    {finalReadyPlayerName} has collected
+                                    all six category wedges.
+                                </p>
+
+                                <p>
+                                    Reach the center of the board to begin
+                                    the final round. Once you enter the center,
+                                    the other players will choose the category
+                                    for your final question.
+                                </p>
+
+                                <div className="game-modal-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={() =>
+                                            setShowFinalReadyPopup(false)
+                                        }
+                                    >
+                                        Continue
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
+                    {/* =====================================
+                        Final center confirmation
+                        ===================================== */}
+
+                    {pendingCenterMove !== null && (
+                        <div
+                            className="game-modal-backdrop"
+                            role="presentation"
+                        >
+                            <section
+                                ref={finalCenterDialogRef}
+                                className="game-modal"
+                                role="dialog"
+                                tabIndex={-1}
+                                aria-modal="true"
+                                aria-labelledby="finalCenterConfirmHeading"
+                                aria-describedby="finalCenterConfirmDescription"
+                            >
+                                <p className="game-modal-eyebrow">
+                                    FINAL TURN
+                                </p>
+
+                                <h2 id="finalCenterConfirmHeading">
+                                    Enter the center?
+                                </h2>
+
+                                <p id="finalCenterConfirmDescription">
+                                    {currentPlayer?.playerName} has collected
+                                    all six wedges.
+                                </p>
+
+                                <p>
+                                    Entering the center will begin the final
+                                    round. The other players will choose the
+                                    category for the final question.
+                                </p>
+
+                                <div className="game-modal-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() =>
+                                            setPendingCenterMove(null)
+                                        }
+                                    >
+                                        Cancel
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={() =>
+                                            void performMovePlayer(
+                                                pendingCenterMove
+                                            )
+                                        }
+                                    >
+                                        Enter Center
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    )}
+                    
+
+                    {/* =====================================
+                        Winner modal
+                        ===================================== */}
+
+                    {gameState.isGameOver && (
+                        <div
+                            className="game-modal-backdrop"
+                            role="presentation"
+                        >
+                            <section
+                                ref={winnerDialogRef}
+                                className="game-modal"
+                                role="dialog"
+                                tabIndex={-1}
+                                aria-modal="true"
+                                aria-labelledby="winnerHeading"
+                                aria-describedby="winnerDescription"
+                            >
+                                <p className="game-modal-eyebrow">
+                                    GAME OVER
+                                </p>
+
+                                <h2 id="winnerHeading">
+                                    {gameState.winnerName} wins!
+                                </h2>
+
+                                <p id="winnerDescription">
+                                    Congratulations!{" "}
+                                    {gameState.winnerName} answered the final
+                                    question correctly and won the game.
+                                </p>
+
+                                <div className="game-modal-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={() =>
+                                            void handleResetGame()
+                                        }
+                                    >
+                                        Start New Game
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    )}
+
             </>
         );
     }

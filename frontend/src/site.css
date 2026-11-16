@@ -2209,8 +2209,7 @@ html {
    Legal board destinations
    ===================================== */
 
-.board-space.legal-destination,
-.board-center.legal-destination {
+.board-space.legal-destination {
     cursor: pointer;
     opacity: 1;
     outline: 4px solid #111827;
@@ -2218,13 +2217,13 @@ html {
     box-shadow:
         0 0 0 4px rgba(255, 255, 255, 0.9),
         0 0 18px rgba(17, 24, 39, 0.45);
+
     transform:
         translate(-50%, -50%)
         scale(1.12);
 }
 
-.board-space.legal-destination:hover,
-.board-center.legal-destination:hover {
+.board-space.legal-destination:hover {
     transform:
         translate(-50%, -50%)
         scale(1.2);
@@ -2253,25 +2252,8 @@ html {
     left: var(--x);
     top: var(--y);
 
-    width: 34px;
-    height: 34px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-
-    background: #ffffff;
-    color: #111827;
-
-    border: 3px solid #111827;
-
-    font-size: 0.9rem;
-    font-weight: 700;
-
-    box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.25);
+    width: 38px;
+    height: 38px;
 
     transform:
         translate(
@@ -2283,6 +2265,10 @@ html {
         left 0.2s ease,
         top 0.2s ease,
         transform 0.2s ease;
+
+    pointer-events: none;
+
+    z-index: 20;
 }
 
 .current-board-player {
@@ -2294,4 +2280,306 @@ html {
         0 3px 10px rgba(0, 0, 0, 0.3);
 
     z-index: 2;
+}
+
+/* =========================================
+   Active gameplay question
+   ========================================= */
+
+.game-question-card {
+    background: #ffffff;
+}
+
+
+.game-question-category {
+    margin: 0 0 6px;
+
+    color: #5c6780;
+
+    font-size: 0.9rem;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+
+.game-question-text {
+    margin-bottom: 22px;
+
+    color: #1f2937;
+
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+
+.game-answer-grid {
+    display: grid;
+
+    grid-template-columns: 1fr;
+
+    gap: 12px;
+}
+
+
+.game-answer-button {
+    display: flex;
+
+    width: 100%;
+    min-height: 60px;
+
+    padding: 12px 14px;
+
+    align-items: center;
+
+    gap: 12px;
+
+    border: 2px solid #d8deea;
+    border-radius: 14px;
+
+    background: #ffffff;
+
+    color: #111827;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+.game-answer-button:hover {
+    border-color: #287cf0;
+
+    background: #f5f9ff;
+
+    transform: translateY(-1px);
+}
+
+
+.game-answer-button:focus-visible {
+    outline: 3px solid #287cf0;
+    outline-offset: 3px;
+}
+
+
+.game-answer-letter {
+    display: flex;
+
+    width: 34px;
+    height: 34px;
+
+    flex: 0 0 34px;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #eef4ff;
+
+    color: #1e5fc4;
+
+    font-weight: 800;
+}
+
+/* =====================================
+   Gameplay modal
+   ===================================== */
+
+.game-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 1rem;
+
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.game-modal {
+    width: min(100%, 32rem);
+    padding: 2rem;
+
+    background: white;
+    border-radius: 1rem;
+
+    box-shadow:
+        0 1.5rem 4rem
+        rgba(0, 0, 0, 0.3);
+}
+
+.game-modal-eyebrow {
+    margin-bottom: 0.5rem;
+
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.game-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 480px) {
+    .game-modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .game-modal-actions .btn {
+        width: 100%;
+    }
+}
+
+/* =========================================
+   Player wedge tokens
+   ========================================= */
+
+/* Visual token that shows collected wedges.
+   Each slice starts as empty and becomes colored
+   when the player has collected that category. */
+.wedge-token {
+    --history-color: #f4efe4;
+    --java-color: #f4efe4;
+    --python-color: #f4efe4;
+    --csharp-color: #f4efe4;
+    --html-color: #f4efe4;
+    --javascript-color: #f4efe4;
+
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    position: relative;
+    border: 4px solid #1e2a5a;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+
+    background: conic-gradient(
+        from -60deg,
+        var(--history-color) 0deg 60deg,
+        var(--java-color) 60deg 120deg,
+        var(--python-color) 120deg 180deg,
+        var(--csharp-color) 180deg 240deg,
+        var(--html-color) 240deg 300deg,
+        var(--javascript-color) 300deg 360deg
+    );
+}
+
+
+/* Small version used in player lists. */
+.wedge-token-small {
+    width: 54px;
+    height: 54px;
+}
+
+
+/* Category classes that fill the slices
+   when a wedge has been collected. */
+.wedge-token.has-java {
+    --java-color: #3182e8;
+}
+
+.wedge-token.has-python {
+    --python-color: #f6ca46;
+}
+
+.wedge-token.has-csharp {
+    --csharp-color: #9748dc;
+}
+
+.wedge-token.has-html {
+    --html-color: #f59a45;
+}
+
+.wedge-token.has-history {
+    --history-color: #ec407a;
+}
+
+.wedge-token.has-javascript {
+    --javascript-color: #25ad63;
+}
+
+
+/* =========================================
+   Physical player pieces on the board
+   ========================================= */
+
+/* Smaller version of the wedge token
+   used directly on the board. */
+.board-wedge-token {
+    width: 38px;
+    height: 38px;
+
+    border-width: 3px;
+
+    position: relative;
+}
+
+
+/* Shows the player number in the middle
+   of the physical board piece. */
+.board-player-number {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    z-index: 2;
+
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #111827;
+
+    line-height: 1;
+}
+
+
+/* Makes the current player's piece
+   slightly easier to identify. */
+.current-board-player .board-wedge-token {
+    box-shadow:
+        0 0 0 3px #ffffff,
+        0 0 0 5px #111827,
+        0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* =========================================
+   Legal center destination
+   ========================================= */
+
+/* The center already uses inset for positioning,
+   so it must not receive the translate transform
+   used by normal board spaces. */
+.board-center.legal-destination {
+    cursor: pointer;
+
+    outline: 4px solid #111827;
+    outline-offset: 3px;
+
+    transform: scale(1.08);
+
+    z-index: 8;
+}
+
+.board-center.legal-destination:focus-visible {
+    outline: 5px solid #000;
+    outline-offset: 4px;
+}
+
+.board-center.legal-destination:hover {
+    transform: scale(1.12);
 }

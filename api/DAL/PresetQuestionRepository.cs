@@ -42,4 +42,28 @@ public class PresetQuestionRepository : IPresetQuestionRepository
 
         return await query.ToListAsync();
     }
+
+    public async Task<PresetQuestion?> GetRandomQuestionAsync(
+        string category,
+        Difficulty difficulty)
+    {
+        List<PresetQuestion> matchingQuestions =
+            await _db.PresetQuestion
+                .Where(question =>
+                    question.Category == category &&
+                    question.Difficulty == difficulty)
+                .ToListAsync();
+
+        if (matchingQuestions.Count == 0)
+        {
+            return null;
+        }
+
+        int randomIndex =
+            Random.Shared.Next(
+                matchingQuestions.Count
+            );
+
+        return matchingQuestions[randomIndex];
+    }
 }
