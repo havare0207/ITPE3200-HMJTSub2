@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import type { ChangeEvent, SyntheticEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -8,8 +9,13 @@ import {
     updateQuestion
 } from "./QuestionService";
 
+import type {
+    Question,
+    QuestionFormData
+} from "./QuestionTypes";
+
 // Categories available when creating or editing a question.
-const categories = [
+const categories: string[] = [
     "Java",
     "JavaScript",
     "HTML/CSS",
@@ -19,7 +25,7 @@ const categories = [
 ];
 
 // Initial values used when creating a new question.
-const initialFormData = {
+const initialFormData: QuestionFormData = {
     questionText: "",
     category: "",
     difficulty: 0,
@@ -32,7 +38,7 @@ const initialFormData = {
 
 function QuestionForm() {
     // Read the game ID and optional question ID from the URL.
-    const { gameId, id } = useParams();
+    const { gameId, id } = useParams<{ gameId: string; id: string }>();
 
     const navigate = useNavigate();
 
@@ -40,7 +46,7 @@ function QuestionForm() {
     const isEditing = Boolean(id);
 
     // Stores the values entered into the form.
-    const [formData, setFormData] = useState(initialFormData);
+    const [formData, setFormData] = useState<QuestionFormData>(initialFormData);
 
     // Tracks loading and form submission.
     const [loading, setLoading] = useState(isEditing);
@@ -52,7 +58,7 @@ function QuestionForm() {
     // Load an existing question when editing.
     useEffect(() => {
         async function loadQuestion() {
-            if (!isEditing) {
+            if (!isEditing || !id) {
                 setLoading(false);
                 return;
             }
@@ -61,7 +67,7 @@ function QuestionForm() {
                 setLoading(true);
                 setError("");
 
-                const data = await getQuestionById(id);
+                const data: Question = await getQuestionById(id);
 
                 // Check that the question belongs to the game in the URL.
                 if (String(data.gameId) !== String(gameId)) {
@@ -81,8 +87,12 @@ function QuestionForm() {
                     answerD: data.answerD,
                     correctAnswer: data.correctAnswer
                 });
-            } catch (err) {
-                setError(err.message);
+            } catch (err: unknown) {
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : "Could not load the question."
+                );
             } finally {
                 setLoading(false);
             }
@@ -92,7 +102,7 @@ function QuestionForm() {
     }, [id, gameId, isEditing]);
 
     // Update form state whenever an input changes.
-    function handleChange(event) {
+    function handleChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
         const { name, value } = event.target;
 
         setFormData(previous => ({
@@ -107,7 +117,7 @@ function QuestionForm() {
     }
 
     // Submit the form to the backend.
-    async function handleSubmit(event) {
+    async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault();
 
         setError("");
@@ -115,15 +125,23 @@ function QuestionForm() {
 
         try {
             // Create a copy of the form data.
-            const questionData = {
+            const questionData: QuestionFormData = {
                 ...formData
             };
 
             if (isEditing) {
+                if (!id) {
+                    throw new Error("Question ID is missing.");
+                }
+
                 // Update an existing question.
                 // The backend preserves its original GameId.
                 await updateQuestion(id, questionData);
             } else {
+                if (!gameId || Number(gameId) <= 0) {
+                    throw new Error("A valid game ID is required.");
+                }
+
                 // Create a new question and associate it with this game.
                 await createQuestion({
                     ...questionData,
@@ -133,8 +151,12 @@ function QuestionForm() {
 
             // Return to the game's question list after saving.
             navigate(`/games/${gameId}/questions`);
-        } catch (err) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Something went wrong while saving the question."
+            );
         } finally {
             setSaving(false);
         }
@@ -215,7 +237,7 @@ function QuestionForm() {
                                     id="questionText"
                                     name="questionText"
                                     className="form-control"
-                                    rows="3"
+                                    rows={3}
                                     value={formData.questionText}
                                     onChange={handleChange}
                                     maxLength={500}
@@ -438,3 +460,4 @@ function QuestionForm() {
 }
 
 export default QuestionForm;
+

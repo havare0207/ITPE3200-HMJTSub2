@@ -16,9 +16,10 @@ import QuestionsPage from "./questions/QuestionsPage";
 import QuestionForm from "./questions/QuestionForm";
 import QuestionDetails from "./questions/QuestionDetails";
 
-import MyGamesPage from "./games/MyGamesPage";
+//import MyGamesPage from "./games/MyGamesPage";
 import NotesPage from "./notes/NotesPage";
 import NoteForm from "./notes/NoteForm";
+import ProtectedRoute from "./auth/ProtectedRoute";
 
 function App() {
     return (
@@ -66,9 +67,13 @@ function App() {
 
                     {/* Explore all questions */}
                     <Route
-                        path="/explore-questions"
-                        element={<ExploreQuestionsPage />}
-                    />
+                    path="/explore-questions"
+                    element={
+                    <ProtectedRoute>
+                     <ExploreQuestionsPage />
+                    </ProtectedRoute>
+                 }
+                />
 
                     {/* Manage questions for a selected game */}
                     <Route
@@ -93,12 +98,15 @@ function App() {
                         path="/games/:gameId/questions/:id/edit"
                         element={<QuestionForm />}
                     />
-
-                    {/* My games page */}
-                    <Route
-                        path="/my-games"
-                        element={<MyGamesPage />}
-                    />
+                    
+                   {/* 
+                   <Route
+                   path="/my-games"
+                   element={<MyGamesPage />}
+                   />
+                   */}
+                    
+                    
                     {/* Explore notes */}
                     <Route
                         path="/notes"
