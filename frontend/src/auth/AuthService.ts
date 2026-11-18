@@ -1,5 +1,5 @@
 // Base URL for authentication endpoints.
-const AUTH_API_URL = "http://localhost:5234/api/auth";
+const AUTH_API_URL = "/api/auth";
 
 
 // =====================================
