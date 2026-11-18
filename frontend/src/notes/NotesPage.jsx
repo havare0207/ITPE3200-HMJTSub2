@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getNotes } from "./NoteService";
 import { useAuth } from "../auth/AuthContext";
 
@@ -77,9 +78,18 @@ function NotesPage() {
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <h2 className="h5 mb-0">Notes</h2>
 
-                    <span className="badge bg-secondary">
-                        {filteredNotes.length} note(s)
-                    </span>
+                    <div className="d-flex align-items-center gap-3">
+                        <span className="badge bg-secondary">
+                            {filteredNotes.length} note(s)
+                        </span>
+
+                        <Link
+                            to="/notes/create"
+                            className="btn btn-primary"
+                        >
+                            + Create Note
+                        </Link>
+                    </div>
                 </div>
 
                 {filteredNotes.length === 0 ? (
