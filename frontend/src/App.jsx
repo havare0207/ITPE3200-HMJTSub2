@@ -16,6 +16,8 @@ import QuestionsPage from "./questions/QuestionsPage";
 import QuestionForm from "./questions/QuestionForm";
 import QuestionDetails from "./questions/QuestionDetails";
 
+import MyGamesPage from "./games/MyGamesPage";
+
 function App() {
     return (
         <BrowserRouter>
@@ -90,6 +92,11 @@ function App() {
                         element={<QuestionForm />}
                     />
 
+                    {/* My games page */}
+                    <Route
+                        path="/my-games"
+                        element={<MyGamesPage />}
+                    />
                 </Route>
             </Routes>
         </BrowserRouter>
