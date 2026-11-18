@@ -13,10 +13,16 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 // Your own application styling
 import "./site.css";
 
+// Main application component
 import App from "./App.jsx";
+
+// Authentication context provider
+import { AuthProvider } from "./auth/AuthContext";
 
 createRoot(document.getElementById("root")).render(
     <StrictMode>
-        <App />
+        <AuthProvider>
+            <App />
+        </AuthProvider>
     </StrictMode>
 );

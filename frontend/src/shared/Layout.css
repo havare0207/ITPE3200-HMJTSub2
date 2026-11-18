@@ -174,3 +174,23 @@ a {
         padding: 0.5rem 0;
     }
 }
+
+
+/* Log in, register */
+
+.navbar-user-email {
+    cursor: default;
+}
+
+.navbar-logout-button {
+    border: 0;
+    background: none;
+    text-decoration: none;
+}
+
+.navbar-logout-button:hover,
+.navbar-logout-button:focus {
+    color: #ffffff;
+    font-weight: bold;
+    text-decoration: none;
+}

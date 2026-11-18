@@ -4,7 +4,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./shared/Layout";
 import HomePage from "./home/HomePage";
+import PlayPage from "./play/PlayPage";
 import CategoriesPage from "./categories/CategoriesPage";
+import PrivacyPage from "./privacy/PrivacyPage";
+
+import LoginPage from "./auth/LoginPage";
+import RegisterPage from "./auth/RegisterPage";
 
 import ExploreQuestionsPage from "./questions/ExploreQuestionsPage";
 import QuestionsPage from "./questions/QuestionsPage";
@@ -24,11 +29,35 @@ function App() {
                         path="/"
                         element={<HomePage />}
                     />
+
+                    {/* Play game */}
+                    <Route
+                        path="/play"
+                        element={<PlayPage />}
+                    />
                    
                     {/* Categories page */}
                     <Route
                         path="/categories"
                         element={<CategoriesPage />}
+                    />
+
+                    {/* Privacy page */}
+                    <Route
+                        path="/privacy"
+                        element={<PrivacyPage />}
+                    />
+
+                    {/* Log in page */}
+                    <Route
+                        path="/login"
+                        element={<LoginPage />}
+                    />
+
+                    {/* Registration page */}
+                    <Route
+                        path="/register"
+                        element={<RegisterPage />}
                     />
 
                     {/* Explore all questions */}
