@@ -14,4 +14,7 @@ public class Note
     public string Content { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // The ID of the user who owns this note.
+    public string? OwnerUserId { get; set; }
 }
