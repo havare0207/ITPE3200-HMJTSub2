@@ -17,6 +17,8 @@ import QuestionForm from "./questions/QuestionForm";
 import QuestionDetails from "./questions/QuestionDetails";
 
 import MyGamesPage from "./games/MyGamesPage";
+import NotesPage from "./notes/NotesPage";
+import NoteForm from "./notes/NoteForm";
 
 function App() {
     return (
@@ -97,6 +99,18 @@ function App() {
                         path="/my-games"
                         element={<MyGamesPage />}
                     />
+                    {/* Explore notes */}
+                    <Route
+                        path="/notes"
+                        element={<NotesPage />}
+                    />
+
+                     {/* Create note */}
+                     <Route
+                        path="/notes/create"
+                        element={<NoteForm />}
+                    />        
+
                 </Route>
             </Routes>
         </BrowserRouter>

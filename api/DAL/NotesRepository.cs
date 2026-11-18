@@ -1,5 +1,6 @@
 using HMJT.Models;
 using Microsoft.EntityFrameworkCore;
+
 namespace HMJT.DAL;
 
 public class NotesRepository : INotesRepository
@@ -11,14 +12,20 @@ public class NotesRepository : INotesRepository
         _db = db;
     }
 
-    public async Task<IEnumerable<Note>> GetAll()
+    public async Task<IEnumerable<Note>> GetAll(string ownerUserId)
     {
-        return await _db.Set<Note>().ToListAsync();
+        return await _db.Set<Note>()
+            .Where(note => note.OwnerUserId == ownerUserId)
+            .ToListAsync();
     }
 
-    public async Task<Note?> GetNoteById(int id)
+    public async Task<Note?> GetNoteById(int id, string ownerUserId)
     {
-        return await _db.Set<Note>().FindAsync(id);
+        return await _db.Set<Note>()
+            .FirstOrDefaultAsync(note =>
+                note.NoteId == id &&
+                note.OwnerUserId == ownerUserId
+            );
     }
 
     public async Task Create(Note note)
@@ -36,12 +43,15 @@ public class NotesRepository : INotesRepository
     public async Task<bool> Delete(int id)
     {
         var note = await _db.Set<Note>().FindAsync(id);
+
         if (note == null)
         {
             return false;
         }
+
         _db.Set<Note>().Remove(note);
         await _db.SaveChangesAsync();
+
         return true;
     }
 }
