@@ -1,38 +1,48 @@
-// ExploreQuestionsPage.jsx
+
 import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 
 // Import the API service used to retrieve questions.
 import { getQuestions } from "./QuestionService";
 
 // Import the search and filtering component.
-import ExploreQuestionFilters from "./ExploreQuestionsFilters.jsx";
+import ExploreQuestionFilters from "./ExploreQuestionsFilters";
+
+// Import shared TypeScript interfaces.
+import type {
+    Question,
+    QuestionFilters,
+    GameOption
+} from "./QuestionTypes";
+
+// Initial filter values.
+const emptyFilters: QuestionFilters = {
+    searchString: "",
+    category: "",
+    difficulty: "",
+    gameId: ""
+};
 
 function ExploreQuestionsPage() {
 
     // Stores the questions retrieved from the backend.
-    const [questions, setQuestions] = useState([]);
+    const [questions, setQuestions] = useState<Question[]>([]);
 
     // Stores the values currently selected in the filter inputs.
-    const [filters, setFilters] = useState({
-        searchString: "",
-        category: "",
-        difficulty: "",
-        gameId: ""
+    const [filters, setFilters] = useState<QuestionFilters>({
+        ...emptyFilters
     });
 
     // Stores the filters currently applied to the API request.
-    const [appliedFilters, setAppliedFilters] = useState({
-        searchString: "",
-        category: "",
-        difficulty: "",
-        gameId: ""
+    const [appliedFilters, setAppliedFilters] = useState<QuestionFilters>({
+        ...emptyFilters
     });
 
     // Tracks whether questions are currently being loaded.
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState<boolean>(true);
 
     // Stores an error message if the API request fails.
-    const [error, setError] = useState("");
+    const [error, setError] = useState<string>("");
 
     // Sets the browser tab title.
     useEffect(() => {
@@ -50,15 +60,19 @@ function ExploreQuestionsPage() {
                 setError("");
 
                 // Send the selected filters to the backend.
-                const data = await getQuestions(appliedFilters);
+                const data: Question[] = await getQuestions(appliedFilters);
 
                 // Store the returned questions.
                 setQuestions(data);
 
-            } catch (err) {
+            } catch (err: unknown) {
 
                 // Display an error if the API request fails.
-                setError(err.message || "Unable to load questions.");
+                const message = err instanceof Error
+                    ? err.message
+                    : "Unable to load questions.";
+
+                setError(message);
 
             } finally {
 
@@ -72,7 +86,7 @@ function ExploreQuestionsPage() {
     }, [appliedFilters]);
 
     // Applies the selected filters when the form is submitted.
-    function handleSearch(event) {
+    function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         // Copy the current filter values into the applied filters.
@@ -82,7 +96,7 @@ function ExploreQuestionsPage() {
     // Clears all filters and retrieves the questions again.
     function handleClear() {
 
-        const emptyFilters = {
+        const newEmptyFilters: QuestionFilters = {
             searchString: "",
             category: "",
             difficulty: "",
@@ -90,34 +104,34 @@ function ExploreQuestionsPage() {
         };
 
         // Reset the filter inputs.
-        setFilters(emptyFilters);
+        setFilters(newEmptyFilters);
 
         // Request all questions without filters.
-        setAppliedFilters(emptyFilters);
+        setAppliedFilters(newEmptyFilters);
     }
 
     // Creates a list of unique games from the retrieved questions.
-    const gameOptions = [
-        ...new Map(
-            questions.map(question => [
+    const gameOptions: GameOption[] = [
+        ...new Map<number, GameOption>(
+            questions.map((question): [number, GameOption] => [
                 question.gameId,
                 {
                     gameId: question.gameId,
-                    gameName: question.gameName
+                    gameName: question.gameName ?? ""
                 }
             ])
         ).values()
     ].filter(game => game.gameName);
 
     // Converts the numeric difficulty value from the API into a readable name.
-    function getDifficultyName(difficulty) {
+    function getDifficultyName(difficulty: number): string | number {
 
         // These values correspond to the backend Difficulty enum.
         return ["Easy", "Medium", "Hard"][difficulty] ?? difficulty;
     }
 
     // Converts the numeric correct-answer value into its corresponding letter.
-    function getAnswerLetter(answer) {
+    function getAnswerLetter(answer: number): string | number {
 
         // These values correspond to the backend AnswerOption enum.
         return ["A", "B", "C", "D"][answer] ?? answer;
@@ -138,7 +152,6 @@ function ExploreQuestionsPage() {
                     <h1 className="mb-0">
                         Explore Questions
                     </h1>
-
 
                 </div>
 
