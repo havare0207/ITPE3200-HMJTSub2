@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   getGames,
@@ -12,6 +13,7 @@ import type { Game } from "./GamesService";
 
 function MyGamesPage() {
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,8 +56,9 @@ function MyGamesPage() {
 
       const createdGame = await createGame(token, newGameName.trim());
 
-      setGames(current => [createdGame, ...current]);
       setNewGameName("");
+
+      navigate(`/games/${createdGame.gameId}/questions/create`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create game.");
     } finally {
