@@ -16,7 +16,7 @@ import QuestionsPage from "./questions/QuestionsPage";
 import QuestionForm from "./questions/QuestionForm";
 import QuestionDetails from "./questions/QuestionDetails";
 
-//import MyGamesPage from "./games/MyGamesPage";
+import MyGamesPage from "./games/MyGamesPage";
 import NotesPage from "./notes/NotesPage";
 import NoteForm from "./notes/NoteForm";
 import ProtectedRoute from "./auth/ProtectedRoute";
@@ -98,14 +98,12 @@ function App() {
                         path="/games/:gameId/questions/:id/edit"
                         element={<QuestionForm />}
                     />
-                    
-                   {/* 
-                   <Route
-                   path="/my-games"
-                   element={<MyGamesPage />}
-                   />
-                   */}
-                    
+
+                    {/* My games page */}
+                    <Route
+                        path="/games"
+                        element={<MyGamesPage />}
+                    />
                     
                     {/* Explore notes */}
                     <Route
