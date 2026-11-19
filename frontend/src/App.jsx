@@ -96,9 +96,10 @@ function App() {
 
                     {/* My games page */}
                     <Route
-                        path="/my-games"
+                        path="/games"
                         element={<MyGamesPage />}
                     />
+                    
                     {/* Explore notes */}
                     <Route
                         path="/notes"
