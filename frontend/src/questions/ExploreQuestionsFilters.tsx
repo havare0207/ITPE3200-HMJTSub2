@@ -1,9 +1,18 @@
+import type {
+    ChangeEvent,
+    Dispatch,
+    SetStateAction
+} from "react";
 
-// ExploreQuestionFilters.jsx
+import type {
+    QuestionFilters,
+    GameOption
+} from "./QuestionTypes";
+
 
 // Available question categories.
 // These should match the categories stored in the backend.
-const categories = [
+const categories: string[] = [
     "Java",
     "JavaScript",
     "HTML/CSS",
@@ -12,6 +21,14 @@ const categories = [
     "C#"
 ];
 
+// Defines the props passed to the component.
+interface ExploreQuestionFiltersProps {
+    filters: QuestionFilters;
+    setFilters: Dispatch<SetStateAction<QuestionFilters>>;
+    gameOptions: GameOption[];
+onSearch: (event: React.SyntheticEvent<HTMLFormElement>) => void;    onClear: () => void;
+}
+
 // Displays the search and filtering controls on the Explore Questions page.
 function ExploreQuestionFilters({
     filters,
@@ -19,10 +36,10 @@ function ExploreQuestionFilters({
     gameOptions,
     onSearch,
     onClear
-}) {
+}: ExploreQuestionFiltersProps) {
 
     // Updates the filter state when the user changes an input.
-    function handleChange(event) {
+    function handleChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
         const { name, value } = event.target;
 
         // Update only the filter that has changed.
@@ -93,7 +110,7 @@ function ExploreQuestionFilters({
                                 name="searchString"
                                 type="text"
                                 className="form-control"
-                                value={filters.searchString}
+                                value={filters.searchString ?? ""}
                                 onChange={handleChange}
                                 placeholder="e.g. What is a closing tag?..."
                                 aria-describedby="question-search-help"
@@ -117,7 +134,7 @@ function ExploreQuestionFilters({
                             id="category"
                             name="category"
                             className="form-select"
-                            value={filters.category}
+                            value={filters.category ?? ""}
                             onChange={handleChange}
                             aria-describedby="question-search-help"
                         >
@@ -147,7 +164,7 @@ function ExploreQuestionFilters({
                             id="difficulty"
                             name="difficulty"
                             className="form-select"
-                            value={filters.difficulty}
+                            value={filters.difficulty ?? ""}
                             onChange={handleChange}
                             aria-describedby="question-search-help"
                         >
@@ -173,7 +190,7 @@ function ExploreQuestionFilters({
                             id="gameId"
                             name="gameId"
                             className="form-select"
-                            value={filters.gameId}
+                            value={filters.gameId ?? ""}
                             onChange={handleChange}
                             aria-describedby="question-search-help"
                         >
@@ -229,3 +246,4 @@ function ExploreQuestionFilters({
 }
 
 export default ExploreQuestionFilters;
+

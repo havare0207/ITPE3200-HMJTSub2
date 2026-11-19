@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -6,13 +7,15 @@ import {
     deleteQuestion
 } from "./QuestionService";
 
+import type { Question } from "./QuestionTypes";
+
 function QuestionsPage() {
     // Read the game ID from the URL.
     // Example: /games/5/questions gives gameId = "5".
-    const { gameId } = useParams();
+    const { gameId } = useParams<{ gameId: string }>();
 
     // Stores the questions belonging to this game.
-    const [questions, setQuestions] = useState([]);
+    const [questions, setQuestions] = useState<Question[]>([]);
 
     // Tracks whether the questions are loading.
     const [loading, setLoading] = useState(true);
@@ -31,12 +34,12 @@ function QuestionsPage() {
             setError("");
 
             // The API filters the questions using this game ID.
-            const data = await getQuestions({
-                gameId: gameId
+           const data = await getQuestions({
+             gameId: gameId ?? ""
             });
 
             setQuestions(data);
-        } catch (err) {
+        } catch (err: unknown) {
             setError(
                 err instanceof Error
                     ? err.message
@@ -54,15 +57,15 @@ function QuestionsPage() {
 
         async function loadInitialQuestions() {
             try {
-                const data = await getQuestions({
-                    gameId: gameId
-                });
+               const data = await getQuestions({
+                gameId: gameId ?? ""
+            });
 
                 // Only update state if the component is still mounted.
                 if (!cancelled) {
                     setQuestions(data);
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 if (!cancelled) {
                     setError(
                         err instanceof Error
@@ -88,7 +91,7 @@ function QuestionsPage() {
 
 
     // Deletes a question after confirmation.
-    async function handleDelete(id) {
+    async function handleDelete(id: number) {
         const confirmed = window.confirm(
             "Are you sure you want to delete this question?"
         );
@@ -104,7 +107,7 @@ function QuestionsPage() {
 
             // Refresh the list after successful deletion.
             await loadQuestions();
-        } catch (err) {
+        } catch (err: unknown) {
             setError(
                 err instanceof Error
                     ? err.message
@@ -116,7 +119,7 @@ function QuestionsPage() {
 
     // Converts the numeric Difficulty enum into readable text.
     // Easy = 0, Medium = 1, Hard = 2.
-    function getDifficultyName(difficulty) {
+    function getDifficultyName(difficulty: number) {
         const names = ["Easy", "Medium", "Hard"];
 
         return names[difficulty] ?? difficulty;
@@ -125,7 +128,7 @@ function QuestionsPage() {
 
     // Converts the numeric AnswerOption enum into a letter.
     // A = 0, B = 1, C = 2, D = 3.
-    function getCorrectAnswer(correctAnswer) {
+    function getCorrectAnswer(correctAnswer: number) {
         const answers = ["A", "B", "C", "D"];
 
         return answers[correctAnswer] ?? correctAnswer;
