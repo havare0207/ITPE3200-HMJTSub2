@@ -3,27 +3,28 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { getQuestionById } from "./QuestionService";
+import type { Question } from "./QuestionTypes";
 
 function QuestionDetails() {
     // Read the game ID and question ID from the URL.
-    const { gameId, id } = useParams();
+    const { gameId, id } = useParams<{ gameId: string; id: string }>();
 
     // Stores the question returned by the API.
-    const [question, setQuestion] = useState(null);
+    const [question, setQuestion] = useState<Question | null>(null);
 
     // Tracks loading and error states.
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string>("");
 
     // Convert numeric difficulty values into readable names.
-    function getDifficultyName(difficulty) {
+    function getDifficultyName(difficulty: number): string | number {
         const names = ["Easy", "Medium", "Hard"];
 
         return names[difficulty] ?? difficulty;
     }
 
     // Convert the numeric answer enum into a letter.
-    function getCorrectAnswer(correctAnswer) {
+    function getCorrectAnswer(correctAnswer: number): string | number {
         const answers = ["A", "B", "C", "D"];
 
         return answers[correctAnswer] ?? correctAnswer;
@@ -36,7 +37,11 @@ function QuestionDetails() {
                 setLoading(true);
                 setError("");
 
-                const data = await getQuestionById(id);
+                if (!id || !gameId) {
+                    throw new Error("Missing game ID or question ID.");
+                }
+
+                const data: Question = await getQuestionById(id);
 
                 // Check that the question belongs to the selected game.
                 if (String(data.gameId) !== String(gameId)) {
@@ -46,8 +51,12 @@ function QuestionDetails() {
                 }
 
                 setQuestion(data);
-            } catch (err) {
-                setError(err.message);
+            } catch (err: unknown) {
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : "Unable to load question details."
+                );
             } finally {
                 setLoading(false);
             }

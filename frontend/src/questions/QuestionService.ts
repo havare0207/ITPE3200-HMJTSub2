@@ -1,10 +1,17 @@
 
+import type {
+    Question,
+    QuestionFormData,
+    CreateQuestionData,
+    QuestionFilters
+} from "./QuestionTypes";
+
 // Base URL of the Questions API.
 // Replace the port with the HTTPS port from your API launchSettings.json.
 const API_URL = "http://localhost:5234/api/questions";
 
 // Reads an API response and handles errors consistently.
-async function handleResponse(response) {
+async function handleResponse<T>(response: Response): Promise<T | null> {
     if (!response.ok) {
         let message = "Something went wrong.";
 
@@ -29,16 +36,18 @@ async function handleResponse(response) {
         return null;
     }
 
-    return await response.json();
+    return await response.json() as T;
 }
 
 // Retrieves questions with optional search and filter parameters.
-export async function getQuestions(filters = {}) {
+export async function getQuestions(
+    filters: QuestionFilters = {}
+): Promise<Question[]> {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "") {
-            params.append(key, value);
+            params.append(key, String(value));
         }
     });
 
@@ -49,18 +58,30 @@ export async function getQuestions(filters = {}) {
 
     const response = await fetch(url);
 
-    return handleResponse(response);
+    const data = await handleResponse<Question[]>(response);
+
+    return data ?? [];
 }
 
 // Retrieves one question by ID.
-export async function getQuestionById(id) {
+export async function getQuestionById(
+    id: string | number
+): Promise<Question> {
     const response = await fetch(`${API_URL}/${id}`);
 
-    return handleResponse(response);
+    const data = await handleResponse<Question>(response);
+
+    if (!data) {
+        throw new Error("Question not found.");
+    }
+
+    return data;
 }
 
 // Creates a new question.
-export async function createQuestion(questionData) {
+export async function createQuestion(
+    questionData: CreateQuestionData
+): Promise<Question> {
     const response = await fetch(API_URL, {
         method: "POST",
         headers: {
@@ -69,11 +90,20 @@ export async function createQuestion(questionData) {
         body: JSON.stringify(questionData)
     });
 
-    return handleResponse(response);
+    const data = await handleResponse<Question>(response);
+
+    if (!data) {
+        throw new Error("The question could not be created.");
+    }
+
+    return data;
 }
 
 // Updates an existing question.
-export async function updateQuestion(id, questionData) {
+export async function updateQuestion(
+    id: string | number,
+    questionData: QuestionFormData
+): Promise<Question> {
     const response = await fetch(`${API_URL}/${id}`, {
         method: "PUT",
         headers: {
@@ -82,14 +112,22 @@ export async function updateQuestion(id, questionData) {
         body: JSON.stringify(questionData)
     });
 
-    return handleResponse(response);
+    const data = await handleResponse<Question>(response);
+
+    if (!data) {
+        throw new Error("The question could not be updated.");
+    }
+
+    return data;
 }
 
 // Deletes a question.
-export async function deleteQuestion(id) {
+export async function deleteQuestion(
+    id: string | number
+): Promise<void> {
     const response = await fetch(`${API_URL}/${id}`, {
         method: "DELETE"
     });
 
-    return handleResponse(response);
+    await handleResponse<null>(response);
 }
