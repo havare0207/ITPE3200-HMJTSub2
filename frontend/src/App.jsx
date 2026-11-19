@@ -16,7 +16,7 @@ import QuestionsPage from "./questions/QuestionsPage";
 import QuestionForm from "./questions/QuestionForm";
 import QuestionDetails from "./questions/QuestionDetails";
 
-//import MyGamesPage from "./games/MyGamesPage";
+import MyGamesPage from "./games/MyGamesPage";
 import NotesPage from "./notes/NotesPage";
 import NoteForm from "./notes/NoteForm";
 import ProtectedRoute from "./auth/ProtectedRoute";
