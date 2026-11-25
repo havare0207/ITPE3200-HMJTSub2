@@ -294,38 +294,38 @@ function QuestionsPage() {
 
                                                     <td>
 
-                                                        <div className="d-flex flex-wrap gap-2">
+                                   
+                                                <div
+                                                 className="d-flex flex-wrap gap-2"
+                                                 role="group"
+                                                aria-label={`Actions for question ${question.questionId}`}
+                                                >
+                                        {/* View question details */}
+                                        <Link
+                                        to={`/games/${gameId}/questions/${question.questionId}`}
+                                        className="btn btn-info"
+                                        >
+                                            Details
+                                         </Link>
 
-                                                            {/* View question details. */}
-                                                            <Link
-                                                                to={`/games/${gameId}/questions/${question.questionId}`}
-                                                                className="btn btn-sm btn-outline-primary"
-                                                            >
-                                                                Details
-                                                            </Link>
+                                        {/* Edit question */}
+                                        <Link
+                                        to={`/games/${gameId}/questions/${question.questionId}/edit`}
+                                        className="btn btn-warning"
+                                        >
+                                        Edit
+                                        </Link>
 
-                                                            {/* Edit the question. */}
-                                                            <Link
-                                                                to={`/games/${gameId}/questions/${question.questionId}/edit`}
-                                                                className="btn btn-sm btn-outline-warning"
-                                                            >
-                                                                Edit
-                                                            </Link>
+                                        {/* Delete question */}
+                                       <button
+                                       type="button"
+                                       className="btn btn-danger"
+                                       onClick={() => handleDelete(question.questionId)}
+                                       >
+                                       Delete
+                                            </button>
+                                        </div>
 
-                                                            {/* Delete the question. */}
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-outline-danger"
-                                                                onClick={() =>
-                                                                    handleDelete(
-                                                                        question.questionId
-                                                                    )
-                                                                }
-                                                            >
-                                                                Delete
-                                                            </button>
-
-                                                        </div>
 
                                                     </td>
 
