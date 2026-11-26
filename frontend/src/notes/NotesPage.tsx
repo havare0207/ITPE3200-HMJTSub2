@@ -1,14 +1,15 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getNotes } from "./NoteService";
+import { getNotes, deleteNote } from "./NoteService";
+import type { Note } from "./NoteService";
 import { useAuth } from "../auth/AuthContext";
 
 function NotesPage() {
     const { token } = useAuth();
 
-    const [notes, setNotes] = useState([]);
+    const [notes, setNotes] = useState<Note[]>([]);
     const [searchString, setSearchString] = useState("");
+    const [error, setError] = useState("");
 
     useEffect(() => {
         document.title = "Explore Notes";
@@ -36,7 +37,32 @@ function NotesPage() {
     const filteredNotes = notes.filter(note =>
         note.title.toLowerCase().includes(searchString.toLowerCase())
     );
+    async function handleDelete(id: number) {
+        if (!token) {
+            return;
+        }
 
+        const confirmed = window.confirm(
+            "Are you sure you want to delete this note?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setError("");
+
+        try {
+            await deleteNote(id, token);
+
+            setNotes(previousNotes =>
+                previousNotes.filter(note => note.noteId !== id)
+            );
+        } catch (error) {
+            console.error("Unable to delete note:", error);
+            setError("Unable to delete note. Please try again.");
+        }
+    }
     return (
         <div className="explore-notes">
             <div className="mb-4">
@@ -92,6 +118,12 @@ function NotesPage() {
                     </div>
                 </div>
 
+                {error && (
+                    <div className="alert alert-danger" role="alert">
+                        {error}
+                    </div>
+                )}
+
                 {filteredNotes.length === 0 ? (
                     <div className="text-center py-4">
                         <strong>No notes found</strong>
@@ -106,6 +138,7 @@ function NotesPage() {
                                 <tr>
                                     <th scope="col">Title</th>
                                     <th scope="col">Content</th>
+                                    <th scope="col">Actions</th>
                                 </tr>
                             </thead>
 
@@ -116,6 +149,24 @@ function NotesPage() {
                                             {note.title}
                                         </th>
                                         <td>{note.content}</td>
+                                        <td>
+                                            <div className="d-flex gap-2">
+                                                <Link
+                                                    to={`/notes/${note.noteId}/edit`}
+                                                    className="btn btn-outline-primary btn-sm"
+                                                >
+                                                    Edit
+                                                </Link>
+
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-outline-danger btn-sm"
+                                                    onClick={() => handleDelete(note.noteId)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

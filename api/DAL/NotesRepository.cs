@@ -34,15 +34,25 @@ public class NotesRepository : INotesRepository
         await _db.SaveChangesAsync();
     }
 
-    public async Task Update(Note note)
+    public async Task<bool> Update(Note note, string ownerUserId)
     {
-        _db.Entry(note).State = EntityState.Modified;
-        await _db.SaveChangesAsync();
-    }
+        var existingNote = await GetNoteById(note.NoteId, ownerUserId);
 
-    public async Task<bool> Delete(int id)
+        if (existingNote == null)
+        {
+            return false;
+        }
+
+        existingNote.Title = note.Title;
+        existingNote.Content = note.Content;
+
+        await _db.SaveChangesAsync();
+
+        return true;
+    }
+    public async Task<bool> Delete(int id, string ownerUserId)
     {
-        var note = await _db.Set<Note>().FindAsync(id);
+        var note = await GetNoteById(id, ownerUserId);
 
         if (note == null)
         {

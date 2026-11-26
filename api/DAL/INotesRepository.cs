@@ -10,7 +10,7 @@ public interface INotesRepository
 
     Task Create(Note note);
 
-    Task Update(Note note);
+    Task<bool> Update(Note note, string ownerUserId);
 
-    Task<bool> Delete(int id);
+    Task<bool> Delete(int id, string ownerUserId);
 }
