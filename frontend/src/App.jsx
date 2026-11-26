@@ -1,5 +1,3 @@
-
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./shared/Layout";
@@ -40,7 +38,7 @@ function App() {
                         path="/play"
                         element={<PlayPage />}
                     />
-                   
+
                     {/* Categories page */}
                     <Route
                         path="/categories"
@@ -67,13 +65,13 @@ function App() {
 
                     {/* Explore all questions */}
                     <Route
-                    path="/explore-questions"
-                    element={
-                    <ProtectedRoute>
-                     <ExploreQuestionsPage />
-                    </ProtectedRoute>
-                 }
-                />
+                        path="/explore-questions"
+                        element={
+                            <ProtectedRoute>
+                                <ExploreQuestionsPage />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     {/* Manage questions for a selected game */}
                     <Route
@@ -104,19 +102,35 @@ function App() {
                         path="/games"
                         element={<MyGamesPage />}
                     />
-                    
-                    {/* Explore notes */}
+
+                    {/* Explore notes - login required */}
                     <Route
                         path="/notes"
-                        element={<NotesPage />}
+                        element={
+                            <ProtectedRoute>
+                                <NotesPage />
+                            </ProtectedRoute>
+                        }
                     />
 
-                     {/* Create note */}
-                     <Route
+                    {/* Create note - login required */}
+                    <Route
                         path="/notes/create"
-                        element={<NoteForm />}
-                    />        
-
+                        element={
+                            <ProtectedRoute>
+                                <NoteForm />
+                            </ProtectedRoute>
+                        }
+                    />
+                    {/* Edit note - login required */}
+                    <Route
+                        path="/notes/:id/edit"
+                        element={
+                            <ProtectedRoute>
+                                <NoteForm />
+                            </ProtectedRoute>
+                        }
+                    />
                 </Route>
             </Routes>
         </BrowserRouter>

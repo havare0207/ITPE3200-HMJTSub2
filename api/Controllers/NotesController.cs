@@ -87,5 +87,59 @@ public class NotesController : ControllerBase
             new { id = note.NoteId },
             note
         );
+   
+    }
+    // PUT: api/notes/1
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateNote(int id, Note note)
+{
+    var userId = User.FindFirstValue(
+        ClaimTypes.NameIdentifier
+    );
+
+    if (string.IsNullOrEmpty(userId))
+    {
+        return Unauthorized();
+    }
+
+    note.NoteId = id;
+
+    var updated = await _notesRepository.Update(
+        note,
+        userId
+    );
+
+    if (!updated)
+    {
+        return NotFound();
+    }
+
+    return NoContent();
+}
+
+    // DELETE: api/notes/1
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteNote(int id)
+    {
+        var userId = User.FindFirstValue(
+            ClaimTypes.NameIdentifier
+        );
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var deleted = await _notesRepository.Delete(
+            id,
+            userId
+        );
+
+        if (!deleted)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
     }
 }
