@@ -10,7 +10,6 @@ function PrivacyPage() {
                 className="privacy-intro mb-5"
                 aria-labelledby="privacy-heading"
             >
-               
                 <h1
                     id="privacy-heading"
                     className="privacy-title"
@@ -19,11 +18,10 @@ function PrivacyPage() {
                 </h1>
 
                 <p className="privacy-intro-text">
-                    This page explains how Code Pursuit handles account information,
-                    password security, authentication, login protection and access to
-                    account-specific features such as custom games. It also describes
-                    how user credentials are protected and how authenticated access is
-                    used throughout the application.
+                    This page explains how Code Pursuit handles account
+                    information, password security, authentication and
+                    access to account-specific features. It also describes
+                    how user credentials and custom games are protected.
                 </p>
             </section>
 
@@ -58,8 +56,7 @@ function PrivacyPage() {
 
                     <p className="mb-0">
                         When a user registers, their email address is stored
-                        so that it can be used to identify their account
-                        and authenticate them when they log in.
+                        to identify their account and allow them to log in.
                     </p>
                 </div>
             </section>
@@ -89,22 +86,14 @@ function PrivacyPage() {
                     </h2>
 
                     <p>
-                        Passwords are never stored as plain text in the
-                        database. ASP.NET Core Identity securely hashes
-                        passwords before they are stored.
+                        Passwords are not stored as plain text in the
+                        database. ASP.NET Core Identity stores salted
+                        password hashes instead of the original passwords.
                     </p>
 
                     <p>
-                        The stored value is a salted password hash rather
-                        than the original password. This means that Code
-                        Pursuit does not need to store or retrieve the
-                        user's original password after registration.
-                    </p>
-
-                    <p>
-                        When a user logs in, the entered password is
-                        verified against the stored password hash by
-                        ASP.NET Core Identity.
+                        During login, the entered password is verified
+                        against the stored password hash.
                     </p>
 
                     <p className="mb-0">
@@ -118,7 +107,7 @@ function PrivacyPage() {
 
 
             {/* =====================================
-                Login protection
+                Authentication and authorization
                 ===================================== */}
 
             <section
@@ -137,32 +126,37 @@ function PrivacyPage() {
                         id="login-protection-heading"
                         className="privacy-card-title"
                     >
-                        Login Protection
+                        Authentication and Authorization
                     </h2>
 
                     <p>
                         Authentication is handled by the backend using
-                        ASP.NET Core Identity together with JSON Web Tokens
-                        (JWT).
+                        ASP.NET Core Identity and JSON Web Tokens (JWT).
                     </p>
 
                     <p>
-                        After a successful login, the API issues a token
-                        that is used by the frontend when requesting
-                        protected resources.
+                        After a successful login, the API issues an
+                        authentication token that the frontend includes
+                        when requesting protected resources.
+                    </p>
+
+                    <p>
+                        The backend validates authentication tokens
+                        and checks whether users are authorized to
+                        access the requested resources.
                     </p>
 
                     <p className="mb-0">
-                        Protected API endpoints verify the authentication
-                        token before allowing access to account-specific
-                        functionality.
+                        Standard Game can be played without an account,
+                        while account-specific features such as Custom
+                        Games require authentication.
                     </p>
                 </div>
             </section>
 
 
             {/* =====================================
-                Custom games
+                Custom game security
                 ===================================== */}
 
             <section
@@ -184,11 +178,66 @@ function PrivacyPage() {
                         Custom Games
                     </h2>
 
-                    <p className="mb-0">
+                    <p>
                         Saved custom games are associated with the account
-                        that created them. A logged-in user should only be
-                        able to access and manage custom games belonging
+                        that created them. Authenticated users can only
+                        access, manage and start custom games belonging
                         to their own account.
+                    </p>
+
+                    <p>
+                        The backend verifies authentication and ownership
+                        before allowing gameplay requests to access or
+                        modify an active Custom Game session.
+                    </p>
+
+                    <p className="mb-0">
+                        Unauthenticated requests and unauthorized access
+                        to another user's custom games or gameplay
+                        sessions are rejected by the backend.
+                    </p>
+                </div>
+            </section>
+
+
+            {/* =====================================
+                Session management
+                ===================================== */}
+
+            <section
+                className="privacy-card mb-4"
+                aria-labelledby="session-management-heading"
+            >
+                <div
+                    className="privacy-card-icon"
+                    aria-hidden="true"
+                >
+                    <i className="bi bi-clock-history" />
+                </div>
+
+                <div>
+                    <h2
+                        id="session-management-heading"
+                        className="privacy-card-title"
+                    >
+                        Session Management
+                    </h2>
+
+                    <p>
+                        The authentication token, email address and
+                        token expiration information are stored in
+                        the browser's local storage to maintain the
+                        user's login state when refreshing the page.
+                    </p>
+
+                    <p>
+                        Access to protected resources requires a
+                        valid authentication token.
+                    </p>
+
+                    <p className="mb-0">
+                        Logging out removes the locally stored
+                        authentication information from the browser.
                     </p>
                 </div>
             </section>
@@ -219,8 +268,9 @@ function PrivacyPage() {
 
                     <p className="mb-0">
                         Code Pursuit is a student project developed as
-                        part of ITPE3200. Account information is used only
-                        for functionality provided by the application.
+                        part of ITPE3200. Account information supports
+                        authentication, account management and
+                        personalized application functionality.
                     </p>
                 </div>
             </section>
