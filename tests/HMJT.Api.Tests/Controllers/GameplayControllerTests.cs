@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using HMJT.Controllers;
 using HMJT.DTOs.Gameplay;
 using HMJT.Services;
@@ -129,7 +132,9 @@ public class GameplayControllerTests
     // so controller tests do not depend on the
     // real application database.
     private static GameplayController CreateController(
-        GameplaySessionService? sessionService = null)
+        GameplaySessionService? sessionService = null,
+        Game? customGame = null,
+        string? userId = null)
     {
         sessionService ??=
             new GameplaySessionService();
@@ -144,8 +149,22 @@ public class GameplayControllerTests
             NullLogger<GameplayController>.Instance,
             sessionService,
             boardService,
-            presetQuestionRepository
-        );
+            presetQuestionRepository,
+            new FakeGameRepository(customGame)
+        )
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = userId is null
+                        ? new ClaimsPrincipal(new ClaimsIdentity())
+                        : new ClaimsPrincipal(new ClaimsIdentity(
+                            new[] { new Claim(ClaimTypes.NameIdentifier, userId) },
+                            "TestAuthentication"))
+                }
+            }
+        };
     }
 
 
@@ -154,7 +173,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void StartGame_ValidRequest_ReturnsOk()
+    public async Task StartGame_ValidRequest_ReturnsOk()
     {
         // Arrange
         GameplayController controller =
@@ -179,7 +198,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<StartGameResponseDto> result =
-            controller.StartGame(request);
+            await controller.StartGame(request);
 
 
         // Assert
@@ -210,7 +229,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void StartGame_DuplicatePlayerNames_ReturnsBadRequest()
+    public async Task StartGame_DuplicatePlayerNames_ReturnsBadRequest()
     {
         // Arrange
         GameplayController controller =
@@ -235,7 +254,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<StartGameResponseDto> result =
-            controller.StartGame(request);
+            await controller.StartGame(request);
 
 
         // Assert
@@ -250,7 +269,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void ConfirmStartGame_ValidRequest_CreatesGameSession()
+    public async Task ConfirmStartGame_ValidRequest_CreatesGameSession()
     {
         // Arrange
         var sessionService =
@@ -289,7 +308,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<GameStateDto> result =
-            controller.ConfirmStartGame(
+            await controller.ConfirmStartGame(
                 request
             );
 
@@ -457,7 +476,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void StartGame_InvalidDifficulty_ReturnsBadRequest()
+    public async Task StartGame_InvalidDifficulty_ReturnsBadRequest()
     {
         // Arrange
         GameplayController controller =
@@ -482,7 +501,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<StartGameResponseDto> result =
-            controller.StartGame(request);
+            await controller.StartGame(request);
 
 
         // Assert
@@ -497,7 +516,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public void StartGame_CustomGameWithoutId_ReturnsBadRequest()
+    public async Task StartGame_CustomGameWithoutId_ReturnsBadRequest()
     {
         // Arrange
         GameplayController controller =
@@ -522,7 +541,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<StartGameResponseDto> result =
-            controller.StartGame(request);
+            await controller.StartGame(request);
 
 
         // Assert
@@ -810,7 +829,7 @@ public class GameplayControllerTests
     // =====================================
 
     [Fact]
-    public async Task AnswerQuestion_CorrectAnswer_AwardsWedgeAndChangesPlayer()
+    public void AnswerQuestion_CorrectAnswer_AwardsWedgeAndChangesPlayer()
     {
         // Arrange
         var sessionService =
@@ -850,6 +869,20 @@ public class GameplayControllerTests
 
                 LegalDestinationIds =
                     new List<int>(),
+
+                CurrentGameplayQuestion = new GameplayQuestion
+                {
+                    QuestionId = 1,
+                    Category = "Java",
+                    Difficulty = Difficulty.Easy,
+                    QuestionText = "Which keyword creates a class?",
+                    AnswerA = "class",
+                    AnswerB = "define",
+                    AnswerC = "struct",
+                    AnswerD = "new",
+                    CorrectAnswer = AnswerOption.A,
+                    IsPresetQuestion = true
+                },
 
                 ActiveQuestion =
                     new ActiveQuestionDto
@@ -922,7 +955,7 @@ public class GameplayControllerTests
 
         // Act
         ActionResult<GameStateDto> result =
-            await controller.AnswerQuestion(
+            controller.AnswerQuestion(
                 request
             );
 
@@ -979,4 +1012,376 @@ public class GameplayControllerTests
         );
     }
 
+
+    // =====================================
+    // Custom game repository and test fixtures
+    // =====================================
+
+    private const string OwnerId = "owner-1";
+    private const int CustomGameId = 42;
+    private static readonly string[] Categories =
+    {
+        "Java", "JavaScript", "HTML/CSS", "Python", "Game History", "C#"
+    };
+
+    private sealed class FakeGameRepository : IGameRepository
+    {
+        private readonly Game? _game;
+
+        public FakeGameRepository(Game? game) => _game = game;
+
+        public Task<Game?> GetByIdForUser(int id, string userId) =>
+            Task.FromResult(_game is not null && _game.GameId == id &&
+                _game.OwnerUserId == userId ? _game : null);
+
+        public Task<IEnumerable<Game>> GetAllForUser(string userId) =>
+            Task.FromResult<IEnumerable<Game>>(
+                _game is not null && _game.OwnerUserId == userId
+                    ? new[] { _game } : Array.Empty<Game>());
+
+        // Gameplay must not modify saved games through the repository.
+        public Task Create(Game game) => throw new NotSupportedException();
+        public Task Update(Game game) => throw new NotSupportedException();
+        public Task<bool> Delete(int id, string userId) => throw new NotSupportedException();
+        public Task SetPresetQuestion(int gameId, IEnumerable<int> presetQuestionIds) =>
+            throw new NotSupportedException();
+    }
+
+    // A complete Easy deck combines three custom and three preset questions.
+    private static Game CreateCustomGame(bool complete = true)
+    {
+        var game = new Game
+        {
+            GameId = CustomGameId,
+            Name = "Test game",
+            OwnerUserId = OwnerId,
+            Questions = new List<Question>(),
+            PresetQuestions = new List<PresetQuestion>()
+        };
+
+        for (int i = 0; i < 3; i++)
+        {
+            game.Questions.Add(new Question
+            {
+                QuestionId = i + 1,
+                GameId = CustomGameId,
+                Category = Categories[i],
+                Difficulty = Difficulty.Easy,
+                QuestionText = $"Custom {Categories[i]}",
+                AnswerA = "Wrong", AnswerB = "Correct",
+                AnswerC = "Wrong", AnswerD = "Wrong",
+                CorrectAnswer = AnswerOption.B
+            });
+        }
+
+        for (int i = 3; i < (complete ? 6 : 5); i++)
+        {
+            game.PresetQuestions.Add(new PresetQuestion
+            {
+                PresetQuestionId = i + 1,
+                Category = Categories[i],
+                Difficulty = Difficulty.Easy,
+                QuestionText = $"Preset {Categories[i]}",
+                AnswerA = "Correct", AnswerB = "Wrong",
+                AnswerC = "Wrong", AnswerD = "Wrong",
+                CorrectAnswer = AnswerOption.A
+            });
+        }
+
+        return game;
+    }
+
+    private static StartGameRequestDto CustomStart(string difficulty = "Easy", int id = CustomGameId) =>
+        new()
+        {
+            GameMode = "Custom", Difficulty = difficulty, CustomGameId = id,
+            PlayerNames = new List<string> { "Alex", "Emma" }
+        };
+
+    private static ConfirmStartGameRequestDto CustomConfirm(string difficulty = "Easy", int id = CustomGameId) =>
+        new()
+        {
+            GameMode = "Custom", Difficulty = difficulty, CustomGameId = id,
+            StartingPlayerNumber = 1,
+            Players = new List<GamePlayerDto>
+            {
+                new() { PlayerNumber = 1, PlayerName = "Alex" },
+                new() { PlayerNumber = 2, PlayerName = "Emma" }
+            }
+        };
+
+    private static GameStateDto GetState(ActionResult<GameStateDto> result) =>
+        Assert.IsType<GameStateDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+    private static async Task<GameStateDto> StartCustomSession(GameplayController controller) =>
+        GetState(await controller.ConfirmStartGame(CustomConfirm()));
+
+    // =====================================
+    // Custom game setup and difficulty availability
+    // =====================================
+
+    [Fact]
+    public async Task StartGame_CompleteCustomDeck_ReturnsOk()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        Assert.IsType<OkObjectResult>((await controller.StartGame(CustomStart())).Result);
+    }
+
+    [Theory]
+    [InlineData("Medium")]
+    [InlineData("Hard")]
+    public async Task StartGame_UnavailableDifficulty_ReturnsBadRequest(string difficulty)
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        Assert.IsType<BadRequestObjectResult>((await controller.StartGame(CustomStart(difficulty))).Result);
+    }
+
+    [Fact]
+    public async Task StartGame_SixQuestionsButMissingCategory_ReturnsBadRequest()
+    {
+        var game = CreateCustomGame(false);
+        game.Questions.Add(new Question
+        {
+            QuestionId = 99, GameId = CustomGameId, Category = "Java",
+            Difficulty = Difficulty.Easy, QuestionText = "Extra Java question",
+            AnswerA = "A", AnswerB = "B", AnswerC = "C", AnswerD = "D",
+            CorrectAnswer = AnswerOption.A
+        });
+        var controller = CreateController(customGame: game, userId: OwnerId);
+        Assert.IsType<BadRequestObjectResult>((await controller.StartGame(CustomStart())).Result);
+    }
+
+    [Fact]
+    public async Task ConfirmStartGame_CompleteCustomDeck_StoresBothQuestionSources()
+    {
+        var sessions = new GameplaySessionService();
+        var controller = CreateController(sessions, CreateCustomGame(), OwnerId);
+        var state = await StartCustomSession(controller);
+        Assert.Equal(OwnerId, state.OwnerUserId);
+        Assert.Equal(CustomGameId, state.CustomGameId);
+        Assert.Equal(6, state.CustomQuestions.Count);
+        Assert.Equal(3, state.CustomQuestions.Count(q => q.IsPresetQuestion));
+        Assert.All(state.CustomQuestions, q => Assert.Equal(Difficulty.Easy, q.Difficulty));
+        Assert.Same(state, sessions.GetGame(state.GameSessionId));
+    }
+
+    [Fact]
+    public async Task ConfirmStartGame_MissingCategory_ReturnsBadRequest()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(false), userId: OwnerId);
+        Assert.IsType<BadRequestObjectResult>((await controller.ConfirmStartGame(CustomConfirm())).Result);
+    }
+
+    [Fact]
+    public async Task GetCustomGameDifficulties_ReturnsCategoryCoverage()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        var result = Assert.IsType<OkObjectResult>(await controller.GetCustomGameDifficulties(CustomGameId));
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result.Value));
+        var items = json.RootElement.EnumerateArray().ToArray();
+        Assert.Equal(3, items.Length);
+        var easy = Assert.Single(items,x => x.GetProperty("difficulty").GetString() == "Easy");
+        Assert.True(easy.GetProperty("isAvailable").GetBoolean());
+        Assert.Equal(6, easy.GetProperty("availableCategoryCount").GetInt32());
+        Assert.Equal(0, easy.GetProperty("missingCategories").GetArrayLength());
+        foreach (var item in items.Where(x => x.GetProperty("difficulty").GetString() != "Easy"))
+        {
+            Assert.False(item.GetProperty("isAvailable").GetBoolean());
+            Assert.Equal(0, item.GetProperty("availableCategoryCount").GetInt32());
+            Assert.Equal(6, item.GetProperty("missingCategories").GetArrayLength());
+        }
+    }
+
+    [Fact]
+    public async Task GetCustomGameDifficulties_IncompleteDeck_ReportsMissingCategory()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(false), userId: OwnerId);
+        var result = Assert.IsType<OkObjectResult>(await controller.GetCustomGameDifficulties(CustomGameId));
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result.Value));
+        var easy = Assert.Single(json.RootElement.EnumerateArray(),x => x.GetProperty("difficulty").GetString() == "Easy");
+        Assert.False(easy.GetProperty("isAvailable").GetBoolean());
+        Assert.Equal(5, easy.GetProperty("availableCategoryCount").GetInt32());
+        Assert.Equal("C#", Assert.Single(easy.GetProperty("missingCategories").EnumerateArray()).GetString());
+    }
+
+    // =====================================
+    // Custom gameplay and question isolation
+    // =====================================
+
+    [Theory]
+    [InlineData("Java", "Custom Java", "B", true)]
+    [InlineData("Python", "Preset Python", "A", true)]
+    [InlineData("Java", "Custom Java", "A", false)]
+    public async Task CustomGame_CenterQuestion_UsesSelectedDeckAndCorrectAnswer(
+        string category, string text, string answer, bool correct)
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        var state = await StartCustomSession(controller);
+        state.NeedsCenterCategory = true;
+        state.CanRollDice = false;
+        var selected = GetState(await controller.SelectCenterCategory(new SelectCenterCategoryRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1, Category = category
+        }));
+        Assert.NotNull(selected.ActiveQuestion);
+        Assert.Equal(text, selected.ActiveQuestion.QuestionText);
+        var answered = GetState(controller.AnswerQuestion(new AnswerQuestionRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1,
+            QuestionId = selected.ActiveQuestion.QuestionId, SelectedAnswer = answer
+        }));
+        Assert.Equal(correct, answered.Players[0].Wedges.Contains(category));
+        Assert.Equal(2, answered.CurrentPlayerNumber);
+        Assert.Null(answered.ActiveQuestion);
+        Assert.Null(answered.CurrentGameplayQuestion);
+    }
+
+    [Theory]
+    [InlineData("B", true)]
+    [InlineData("A", false)]
+    public async Task CustomGame_FinalAnswer_WinsOrRequiresRetry(string answer, bool wins)
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        var state = await StartCustomSession(controller);
+        foreach (string category in Categories)
+            state.Players[0].Wedges.Add(category);
+        state.NeedsFinalCategory = true;
+        state.CanRollDice = false;
+        var selected = GetState(await controller.SelectFinalCategory(new SelectCenterCategoryRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1, Category = "Java"
+        }));
+        Assert.True(selected.IsFinalQuestion);
+        Assert.NotNull(selected.ActiveQuestion);
+        var answered = GetState(controller.AnswerQuestion(new AnswerQuestionRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1,
+            QuestionId = selected.ActiveQuestion.QuestionId, SelectedAnswer = answer
+        }));
+        Assert.Equal(wins, answered.IsGameOver);
+        Assert.Equal(wins ? "Alex" : null, answered.WinnerName);
+        Assert.Equal(!wins, answered.Players[0].MustLeaveCenterBeforeFinalRetry);
+        Assert.Equal(!wins, answered.CanRollDice);
+        Assert.Null(answered.CurrentGameplayQuestion);
+    }
+
+    [Fact]
+    public async Task CustomGame_SerializedState_DoesNotExposeCorrectAnswersOrOwner()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        var state = await StartCustomSession(controller);
+        state.NeedsCenterCategory = true;
+        state.CanRollDice = false;
+        GetState(await controller.SelectCenterCategory(new SelectCenterCategoryRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1, Category = "Java"
+        }));
+        var json = JsonSerializer.Serialize(state, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        Assert.False(root.TryGetProperty("ownerUserId", out _));
+        Assert.False(root.TryGetProperty("customQuestions", out _));
+        Assert.False(root.TryGetProperty("currentGameplayQuestion", out _));
+        Assert.False(root.GetProperty("activeQuestion").TryGetProperty("correctAnswer", out _));
+    }
+
+    // =====================================
+    // Authorization of saved games and active sessions
+    // =====================================
+
+    [Theory]
+    [InlineData(null, 401)]
+    [InlineData("other-user", 404)]
+    public async Task CustomGame_SetupEndpoints_RejectUnauthorizedAccess(string? userId, int status)
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: userId);
+        Assert.Equal(status, Assert.IsAssignableFrom<ObjectResult>((await controller.StartGame(CustomStart())).Result).StatusCode);
+        Assert.Equal(status, Assert.IsAssignableFrom<ObjectResult>((await controller.ConfirmStartGame(CustomConfirm())).Result).StatusCode);
+        Assert.Equal(status, Assert.IsAssignableFrom<ObjectResult>(await controller.GetCustomGameDifficulties(CustomGameId)).StatusCode);
+    }
+
+    [Fact]
+    public async Task CustomGame_UnknownId_ReturnsNotFound()
+    {
+        var controller = CreateController(customGame: CreateCustomGame(), userId: OwnerId);
+        Assert.IsType<NotFoundObjectResult>((await controller.StartGame(CustomStart(id: 999))).Result);
+        Assert.IsType<NotFoundObjectResult>((await controller.ConfirmStartGame(CustomConfirm(id: 999))).Result);
+        Assert.IsType<NotFoundObjectResult>(await controller.GetCustomGameDifficulties(999));
+    }
+
+    [Theory]
+    [InlineData("roll", null, 401)]
+    [InlineData("move", null, 401)]
+    [InlineData("answer", null, 401)]
+    [InlineData("center", null, 401)]
+    [InlineData("final", null, 401)]
+    [InlineData("reset", null, 401)]
+    [InlineData("roll", "other-user", 403)]
+    [InlineData("move", "other-user", 403)]
+    [InlineData("answer", "other-user", 403)]
+    [InlineData("center", "other-user", 403)]
+    [InlineData("final", "other-user", 403)]
+    [InlineData("reset", "other-user", 403)]
+    public async Task CustomSession_NonOwnerOrAnonymous_CannotModifySession(
+        string action, string? userId, int status)
+    {
+        var sessions = new GameplaySessionService();
+        var owner = CreateController(sessions, CreateCustomGame(), OwnerId);
+        var state = await StartCustomSession(owner);
+        var controller = CreateController(sessions, userId: userId);
+        var id = state.GameSessionId;
+        var before = JsonSerializer.Serialize(state);
+        ActionResult? result = action switch
+        {
+            "roll" => controller.RollDice(new RollDiceRequestDto { GameSessionId = id, CurrentPlayerNumber = 1 }).Result,
+            "move" => (await controller.Move(new MoveRequestDto { GameSessionId = id, CurrentPlayerNumber = 1, BoardSpaceId = 27 })).Result,
+            "answer" => controller.AnswerQuestion(new AnswerQuestionRequestDto { GameSessionId = id, CurrentPlayerNumber = 1, QuestionId = 1, SelectedAnswer = "B" }).Result,
+            "center" => (await controller.SelectCenterCategory(new SelectCenterCategoryRequestDto { GameSessionId = id, CurrentPlayerNumber = 1, Category = "Java" })).Result,
+            "final" => (await controller.SelectFinalCategory(new SelectCenterCategoryRequestDto { GameSessionId = id, CurrentPlayerNumber = 1, Category = "Java" })).Result,
+            "reset" => controller.ResetGame(id),
+            _ => throw new ArgumentOutOfRangeException(nameof(action))
+        };
+        Assert.Equal(status, Assert.IsAssignableFrom<ObjectResult>(result).StatusCode);
+        Assert.Same(state, sessions.GetGame(id));
+        Assert.Equal(before, JsonSerializer.Serialize(state));
+    }
+
+    [Fact]
+    public async Task CustomSession_Owner_CanRollMoveAndReset()
+    {
+        var sessions = new GameplaySessionService();
+        var controller = CreateController(sessions, CreateCustomGame(), OwnerId);
+        var state = await StartCustomSession(controller);
+        var rolled = GetState(controller.RollDice(new RollDiceRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1
+        }));
+        Assert.InRange(rolled.DiceRoll.GetValueOrDefault(), 1, 6);
+        Assert.NotEmpty(rolled.LegalDestinationIds);
+        var destination = rolled.LegalDestinationIds[0];
+        var moved = GetState(await controller.Move(new MoveRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1, BoardSpaceId = destination
+        }));
+        Assert.Equal(destination, moved.Players[0].BoardSpaceId);
+        Assert.IsType<NoContentResult>(controller.ResetGame(state.GameSessionId));
+        Assert.Null(sessions.GetGame(state.GameSessionId));
+    }
+
+    [Fact]
+    public async Task StandardSession_Anonymous_CanRollAndReset()
+    {
+        var sessions = new GameplaySessionService();
+        var controller = CreateController(sessions);
+        var request = CustomConfirm();
+        request.GameMode = "Standard";
+        request.CustomGameId = null;
+        var state = GetState(await controller.ConfirmStartGame(request));
+        GetState(controller.RollDice(new RollDiceRequestDto
+        {
+            GameSessionId = state.GameSessionId, CurrentPlayerNumber = 1
+        }));
+        Assert.IsType<NoContentResult>(controller.ResetGame(state.GameSessionId));
+        Assert.Null(sessions.GetGame(state.GameSessionId));
+    }
 }

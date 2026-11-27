@@ -8,6 +8,11 @@ import {
 import { useAuth } from "../auth/AuthContext";
 
 import {
+    getGames,
+    type Game
+} from "../games/GamesService";
+
+import {
     answerQuestion,
     confirmStartGame,
     movePlayer,
@@ -16,6 +21,8 @@ import {
     selectCenterCategory,
     selectFinalCategory,
     startGame,
+    getCustomGameDifficulties,
+    type CustomGameDifficulty,
     type GamePlayer,
     type GameState
 } from "./GameService";
@@ -37,17 +44,53 @@ type Difficulty = "Easy" | "Medium" | "Hard";
 // =====================================
 
 function PlayPage() {
-    const { isAuthenticated } = useAuth();
+    const {
+        token,
+        isAuthenticated,
+        isLoading: isAuthLoading
+    } = useAuth();
 
-    // Custom games will later be loaded from the API
-    // for the currently authenticated user.
-    const customGames: { id: number; name: string }[] = [];
+    // Stores the custom games belonging to
+    // the currently authenticated user.
+    const [customGames, setCustomGames] =
+        useState<Game[]>([]);
+
+    // Stores the selected custom game ID.
+    const [selectedCustomGameId, setSelectedCustomGameId] =
+        useState<number | null>(null);
+
+    // Tracks whether custom games are being loaded.
+    const [isLoadingCustomGames, setIsLoadingCustomGames] =
+        useState(false);
+
+    // Stores errors related to loading custom games.
+    const [customGamesError, setCustomGamesError] =
+        useState("");
 
     const [gameMode, setGameMode] =
         useState<GameMode>("Standard");
 
     const [difficulty, setDifficulty] =
         useState<Difficulty>("Easy");
+
+    // Stores the difficulty availability of the selected custom game.
+    const [customGameDifficulties, setCustomGameDifficulties] =
+        useState<CustomGameDifficulty[]>([]);
+
+    // Tracks whether difficulty availability is being loaded.
+    const [isLoadingDifficulties, setIsLoadingDifficulties] =
+        useState(false);
+
+    // Stores errors related to difficulty availability.
+    const [difficultyError, setDifficultyError] =
+        useState("");
+
+    // Identifies the game and user token for the loaded availability.
+    const [loadedDifficultyGameId, setLoadedDifficultyGameId] =
+        useState<number | null>(null);
+
+    const [loadedDifficultyToken, setLoadedDifficultyToken] =
+        useState<string | null>(null);
 
     const [playerNames, setPlayerNames] =
         useState<string[]>(["", "", "", "", "", ""]);
@@ -105,6 +148,172 @@ function PlayPage() {
         setFinalReadyPlayerName
     ] = useState("");
 
+    // =====================================
+    // Load custom games
+    // =====================================
+
+    // Load custom games after authentication
+    // has been restored or the user logs in.
+    useEffect(() => {
+        if (isAuthLoading) {
+            return;
+        }
+
+        if (!token || !isAuthenticated) {
+            setCustomGames([]);
+            setSelectedCustomGameId(null);
+            setIsLoadingCustomGames(false);
+            setCustomGamesError("");
+            setGameMode("Standard");
+            return;
+        }
+
+        const authToken = token;
+        let cancelled = false;
+
+        setCustomGames([]);
+        setSelectedCustomGameId(null);
+        setGameMode("Standard");
+
+        async function loadCustomGames(): Promise<void> {
+            try {
+                setIsLoadingCustomGames(true);
+                setCustomGamesError("");
+
+                const games = await getGames(authToken);
+
+                if (!cancelled) {
+                    setCustomGames(games);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setCustomGamesError(
+                        err instanceof Error
+                            ? err.message
+                            : "Unable to load custom games."
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoadingCustomGames(false);
+                }
+            }
+        }
+
+        void loadCustomGames();
+
+        // Prevent outdated requests from updating
+        // the state after logout or unmounting.
+        return () => {
+            cancelled = true;
+        };
+    }, [token, isAuthenticated, isAuthLoading]);
+
+
+    // =====================================
+    // Load available custom game difficulties
+    // =====================================
+
+    useEffect(() => {
+        setCustomGameDifficulties([]);
+        setDifficultyError("");
+        setLoadedDifficultyGameId(null);
+        setLoadedDifficultyToken(null);
+        setIsLoadingDifficulties(false);
+
+        // Standard games support all difficulties.
+        if (
+            gameMode !== "Custom" ||
+            selectedCustomGameId === null ||
+            !token ||
+            !isAuthenticated
+        ) {
+            return;
+        }
+
+        const gameId = selectedCustomGameId;
+        const authToken = token;
+
+        let cancelled = false;
+
+        async function loadDifficulties(): Promise<void> {
+            try {
+                setIsLoadingDifficulties(true);
+
+                const difficulties =
+                    await getCustomGameDifficulties(
+                        gameId,
+                        authToken
+                    );
+
+                if (cancelled) {
+                    return;
+                }
+
+                setCustomGameDifficulties(difficulties);
+                setLoadedDifficultyGameId(gameId);
+                setLoadedDifficultyToken(authToken);
+
+                // Select the first available difficulty
+                // if the current selection is unavailable.
+                setDifficulty((currentDifficulty) => {
+                    const currentIsAvailable =
+                        difficulties.some(
+                            (item) =>
+                                item.difficulty === currentDifficulty &&
+                                item.isAvailable
+                        );
+
+                    if (currentIsAvailable) {
+                        return currentDifficulty;
+                    }
+
+                    const firstAvailable =
+                        difficulties.find(
+                            (item) => item.isAvailable
+                        );
+
+                    return firstAvailable?.difficulty ??
+                        currentDifficulty;
+                });
+
+                if (!difficulties.some(
+                    (item) => item.isAvailable
+                )) {
+                    setDifficultyError(
+                        "This custom game cannot be played yet. " +
+                        "Add at least one question in each of the " +
+                        "six categories at the same difficulty level."
+                    );
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setDifficultyError(
+                        err instanceof Error
+                            ? err.message
+                            : "Unable to load available difficulties."
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoadingDifficulties(false);
+                }
+            }
+        }
+
+        void loadDifficulties();
+
+        // Prevent outdated requests from updating the state.
+        return () => {
+            cancelled = true;
+        };
+
+    }, [
+        gameMode,
+        selectedCustomGameId,
+        token,
+        isAuthenticated
+    ]);
 
     // Move focus when the starter confirmation
     // screen replaces the setup form.
@@ -158,7 +367,74 @@ function PlayPage() {
             );
         };
     }, [pendingCenterMove]);
+    
+    // =====================================
+    // Difficulty availability
+    // =====================================
 
+    // Ensure that the loaded availability belongs
+    // to the currently selected game and user.
+    const hasLoadedDifficulties =
+        selectedCustomGameId !== null &&
+        loadedDifficultyGameId === selectedCustomGameId &&
+        loadedDifficultyToken === token &&
+        isAuthenticated &&
+        !isLoadingDifficulties;
+
+    // Check whether a difficulty can be selected.
+    function isDifficultyAvailable(
+        selectedDifficulty: Difficulty
+    ): boolean {
+        if (gameMode === "Standard") {
+            return true;
+        }
+
+        if (!hasLoadedDifficulties) {
+            return false;
+        }
+
+        return customGameDifficulties.some(
+            (item) =>
+                item.difficulty === selectedDifficulty &&
+                item.isAvailable
+        );
+    }
+
+    // Explain why a custom game difficulty is unavailable.
+    function getDifficultyDescription(
+        selectedDifficulty: Difficulty
+    ): string {
+        if (selectedCustomGameId === null) {
+            return "Select a custom game first.";
+        }
+
+        if (isLoadingDifficulties) {
+            return "Checking available questions...";
+        }
+
+        if (!hasLoadedDifficulties) {
+            return "Difficulty availability is not loaded.";
+        }
+
+        const availability =
+            customGameDifficulties.find(
+                (item) =>
+                    item.difficulty === selectedDifficulty
+            );
+
+        if (!availability) {
+            return "Difficulty unavailable.";
+        }
+
+        if (availability.isAvailable) {
+            return "All 6 categories available.";
+        }
+
+        return (
+            `${availability.availableCategoryCount}/6 categories available. ` +
+            `Missing: ${availability.missingCategories.join(", ")}.`
+        );
+    }
 
     // =====================================
     // Player input
@@ -249,6 +525,38 @@ function PlayPage() {
                 return;
             }
 
+            // Ensure that an existing custom game
+            // has been selected before starting.
+            if (
+                gameMode === "Custom" &&
+                (
+                    selectedCustomGameId === null ||
+                    !customGames.some(
+                        (game) =>
+                            game.gameId === selectedCustomGameId
+                    )
+                )
+            ) {
+                setError(
+                    "Please select a custom game."
+                );
+
+                return;
+            }
+
+            // Prevent starting a custom game with
+            // an unavailable difficulty.
+            if (
+                gameMode === "Custom" &&
+                !isDifficultyAvailable(difficulty)
+            ) {
+                setError(
+                    difficultyError ||
+                    getDifficultyDescription(difficulty)
+                );
+
+                return;
+            }
 
             // =====================================
             // Start game through the backend API
@@ -261,8 +569,11 @@ function PlayPage() {
                     playerNames: enteredPlayers.map(
                         (player) => player.name
                     ),
-                    customGameId: null
-                });
+                    customGameId:
+                        gameMode === "Custom"
+                            ? selectedCustomGameId
+                            : null
+                }, token);
 
                 // Store the game data returned by the API.
                 setPlayers(response.players);
@@ -312,8 +623,12 @@ function PlayPage() {
                 gameMode,
                 difficulty,
                 players,
-                startingPlayerNumber
-            });
+                startingPlayerNumber,
+                customGameId:
+                    gameMode === "Custom"
+                        ? selectedCustomGameId
+                        : null
+            }, token);
 
             setGameState(response);
 
@@ -344,7 +659,7 @@ function PlayPage() {
                 gameSessionId: gameState.gameSessionId,
                 currentPlayerNumber:
                     gameState.currentPlayerNumber
-            });
+            }, token);
 
             setGameState(response);
         } catch (err) {
@@ -378,7 +693,7 @@ function PlayPage() {
                     gameState.currentPlayerNumber,
 
                 boardSpaceId
-            });
+            }, token);
 
             setGameState(response);
             setPendingCenterMove(null);
@@ -469,7 +784,7 @@ function PlayPage() {
                     gameState.activeQuestion.questionId,
 
                 selectedAnswer
-            });
+            }, token);
 
 
             const playerAfterAnswer =
@@ -535,7 +850,7 @@ function PlayPage() {
                     gameState.currentPlayerNumber,
 
                 category
-            });
+            }, token);
 
             setGameState(response);
         } catch (err) {
@@ -575,7 +890,7 @@ function PlayPage() {
                     gameState.currentPlayerNumber,
 
                 category
-            });
+            }, token);
 
             setGameState(response);
         } catch (err) {
@@ -600,7 +915,8 @@ function PlayPage() {
             setError("");
 
             await resetGame(
-                gameState.gameSessionId
+                gameState.gameSessionId,
+                token
             );
 
             // Remove the active gameplay state.
@@ -627,6 +943,7 @@ function PlayPage() {
 
             setGameMode("Standard");
             setDifficulty("Easy");
+            setSelectedCustomGameId(null);
         } catch (err) {
             setError(
                 err instanceof Error
@@ -676,7 +993,16 @@ function PlayPage() {
                     )}
 
                 </div>
-
+                
+                {/* Display gameplay and authorization errors. */}
+                {error && (
+                    <div
+                        className="alert alert-danger"
+                        role="alert"
+                    >
+                        {error}
+                    </div>
+                )}
 
                 {/* =====================================
                     Gameplay status
@@ -1452,6 +1778,15 @@ function PlayPage() {
 
                     </div>
 
+                    {/* Display errors when starting the gameplay session. */}
+                    {error && (
+                        <div
+                            className="alert alert-danger"
+                            role="alert"
+                        >
+                            {error}
+                        </div>
+                    )}     
 
                     {/* This button will later start
                         the backend game session. */}
@@ -1628,19 +1963,87 @@ function PlayPage() {
                                         <p
                                             id="customGameModeDescription"
                                             className="text-muted mt-2 mb-0"
+                                            role="status"
+                                            aria-live="polite"
                                         >
-                                            {!isAuthenticated
-                                                ? "Login or register to use custom games."
-                                                : customGames.length === 0
-                                                    ? "Create a custom game under My Games first."
-                                                    : "Play using one of your saved custom games."}
+                                            {isAuthLoading || isLoadingCustomGames
+                                                ? "Loading custom games..."
+                                                : !isAuthenticated
+                                                    ? "Login or register to use custom games."
+                                                    : customGamesError
+                                                        ? "Unable to load your custom games."
+                                                        : customGames.length === 0
+                                                            ? "Create a custom game under My Games first."
+                                                            : "Play using one of your saved custom games."}
                                         </p>
+
+                                        {customGamesError && (
+                                            <p
+                                                className="text-danger mt-2 mb-0"
+                                                role="alert"
+                                            >
+                                                {customGamesError}
+                                            </p>
+                                        )}
 
                                     </div>
 
                                 </div>
 
                             </div>
+
+                            {/* =====================================
+                                Custom game selection
+                                ===================================== */}
+
+                            {gameMode === "Custom" && isAuthenticated && (
+                                <div className="mt-3">
+
+                                    <label
+                                        htmlFor="selectedCustomGame"
+                                        className="form-label fw-bold"
+                                    >
+                                        Select Custom Game
+                                    </label>
+
+                                    <select
+                                        id="selectedCustomGame"
+                                        className="form-select"
+                                        value={selectedCustomGameId ?? ""}
+                                        onChange={(event) =>
+                                            setSelectedCustomGameId(
+                                                event.target.value === ""
+                                                    ? null
+                                                    : Number(event.target.value)
+                                            )
+                                        }
+                                        aria-describedby="customGameSelectionHelp"
+                                        required
+                                    >
+                                        <option value="">
+                                            Choose a custom game
+                                        </option>
+
+                                        {customGames.map((game) => (
+                                            <option
+                                                key={game.gameId}
+                                                value={game.gameId}
+                                            >
+                                                {game.name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <p
+                                        id="customGameSelectionHelp"
+                                        className="form-text"
+                                    >
+                                        Select one of your saved games to play
+                                        using its custom questions.
+                                    </p>
+
+                                </div>
+                            )}
 
                         </fieldset>
 
@@ -1717,7 +2120,13 @@ function PlayPage() {
 
                                 {/* Easy */}
                                 <label
-                                    className="difficulty-card difficulty-easy"
+                                    className={
+                                    `difficulty-card difficulty-easy${
+                                        !isDifficultyAvailable("Easy")
+                                            ? " difficulty-disabled"
+                                            : ""
+                                    }`
+                                }
                                     htmlFor="difficultyEasy"
                                 >
                                     <input
@@ -1726,7 +2135,11 @@ function PlayPage() {
                                         name="difficulty"
                                         value="Easy"
                                         checked={
-                                            difficulty === "Easy"
+                                            difficulty === "Easy" &&
+                                            isDifficultyAvailable("Easy")
+                                        }
+                                        disabled={
+                                            !isDifficultyAvailable("Easy")
                                         }
                                         onChange={() =>
                                             setDifficulty("Easy")
@@ -1754,8 +2167,9 @@ function PlayPage() {
                                         id="difficultyEasyDescription"
                                         className="difficulty-description"
                                     >
-                                        Core concepts and
-                                        straightforward questions.
+                                        {gameMode === "Custom"
+                                            ? getDifficultyDescription("Easy")
+                                            : "Core concepts and straightforward questions."}
                                     </span>
 
                                 </label>
@@ -1763,7 +2177,13 @@ function PlayPage() {
 
                                 {/* Medium */}
                                 <label
-                                    className="difficulty-card difficulty-medium"
+                                    className={
+                                        `difficulty-card difficulty-medium${
+                                            !isDifficultyAvailable("Medium")
+                                                ? " difficulty-disabled"
+                                                : ""
+                                        }`
+                                    }
                                     htmlFor="difficultyMedium"
                                 >
                                     <input
@@ -1772,7 +2192,11 @@ function PlayPage() {
                                         name="difficulty"
                                         value="Medium"
                                         checked={
-                                            difficulty === "Medium"
+                                            difficulty === "Medium" &&
+                                            isDifficultyAvailable("Medium")
+                                        }
+                                        disabled={
+                                            !isDifficultyAvailable("Medium")
                                         }
                                         onChange={() =>
                                             setDifficulty(
@@ -1802,8 +2226,9 @@ function PlayPage() {
                                         id="difficultyMediumDescription"
                                         className="difficulty-description"
                                     >
-                                        More reasoning and short
-                                        code examples.
+                                        {gameMode === "Custom"
+                                            ? getDifficultyDescription("Medium")
+                                            : "More reasoning and short code examples."}
                                     </span>
 
                                 </label>
@@ -1811,7 +2236,13 @@ function PlayPage() {
 
                                 {/* Hard */}
                                 <label
-                                    className="difficulty-card difficulty-hard"
+                                    className={
+                                        `difficulty-card difficulty-hard${
+                                            !isDifficultyAvailable("Hard")
+                                                ? " difficulty-disabled"
+                                                : ""
+                                        }`
+                                    }
                                     htmlFor="difficultyHard"
                                 >
                                     <input
@@ -1820,7 +2251,11 @@ function PlayPage() {
                                         name="difficulty"
                                         value="Hard"
                                         checked={
-                                            difficulty === "Hard"
+                                            difficulty === "Hard" &&
+                                            isDifficultyAvailable("Hard")
+                                        }
+                                        disabled={
+                                            !isDifficultyAvailable("Hard")
                                         }
                                         onChange={() =>
                                             setDifficulty("Hard")
@@ -1848,8 +2283,9 @@ function PlayPage() {
                                         id="difficultyHardDescription"
                                         className="difficulty-description"
                                     >
-                                        Trickier language details
-                                        and deeper concepts.
+                                        {gameMode === "Custom"
+                                            ? getDifficultyDescription("Hard")
+                                            : "Trickier language details and deeper concepts."}
                                     </span>
 
                                 </label>
@@ -1859,10 +2295,34 @@ function PlayPage() {
                         </fieldset>
 
 
-                        {/* Submit setup. */}
+                        {/* Display custom game difficulty errors. */}
+                        {gameMode === "Custom" && difficultyError && (
+                            <div
+                                className="alert alert-danger mt-3"
+                                role="alert"
+                            >
+                                {difficultyError}
+                            </div>
+                        )}
+
+                        {/* Display loading feedback. */}
+                        {gameMode === "Custom" && isLoadingDifficulties && (
+                            <div
+                                className="alert alert-info mt-3"
+                                role="status"
+                            >
+                                Checking available difficulties...
+                            </div>
+                        )}
+
+                        {/* Prevent starting games with unavailable difficulties. */}
                         <button
                             type="submit"
                             className="setup-start-button"
+                            disabled={
+                                gameMode === "Custom" &&
+                                !isDifficultyAvailable(difficulty)
+                            }
                         >
                             Choose starting player
                         </button>

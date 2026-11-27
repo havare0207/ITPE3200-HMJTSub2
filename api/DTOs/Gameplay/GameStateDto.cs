@@ -1,3 +1,6 @@
+using HMJT.Models;
+using System.Text.Json.Serialization;
+
 namespace HMJT.DTOs.Gameplay;
 
 public class GameStateDto
@@ -13,6 +16,24 @@ public class GameStateDto
     // Standard or Custom.
     public string GameMode { get; set; } = string.Empty;
 
+    // Identifies the selected custom game.
+    // Null when playing a standard game.
+    public int? CustomGameId { get; set; }
+    
+    // Identifies the owner of a custom gameplay session.
+    // Used only for server-side authorization.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? OwnerUserId { get; set; }
+
+    // Stores a snapshot of the selected custom game's
+    // questions for the duration of the gameplay session.
+    [JsonIgnore]
+    public List<GameplayQuestion> CustomQuestions { get; set; } = new();
+
+    // Stores the full active question, including its correct answer.
+    // This information must never be sent to the frontend.
+    [JsonIgnore]
+    public GameplayQuestion? CurrentGameplayQuestion { get; set; }
 
     // All players participating in the game.
     public List<GamePlayerStateDto> Players { get; set; } = new();
