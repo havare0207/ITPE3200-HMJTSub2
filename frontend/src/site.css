@@ -1427,6 +1427,23 @@ html {
     pointer-events: none;
 }
 
+/* Disabled difficulty options for custom games. */
+.difficulty-card.difficulty-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.difficulty-card.difficulty-disabled:hover {
+    transform: none;
+    cursor: not-allowed;
+}
+
+.setup-start-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .difficulty-radio {
     position: absolute;
     top: 20px;
@@ -1513,7 +1530,7 @@ html {
     box-shadow: 0 8px 22px rgba(40, 124, 240, 0.2);
 }
 
-.setup-start-button:hover {
+.setup-start-button:hover:not(:disabled) {
     background: #176be1;
 }
 

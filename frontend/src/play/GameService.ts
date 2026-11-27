@@ -1,5 +1,4 @@
 const GAMEPLAY_API_URL = "http://localhost:5234/api/gameplay";
-const API_BASE_URL = "http://localhost:5234";
 
 
 export interface StartGameRequest {
@@ -27,6 +26,7 @@ export interface ConfirmStartGameRequest {
     difficulty: "Easy" | "Medium" | "Hard";
     players: GamePlayer[];
     startingPlayerNumber: number;
+    customGameId: number | null;
 }
 
 export interface GamePlayerState {
@@ -121,6 +121,34 @@ export interface SelectFinalCategoryRequest {
         | "C#";
 }
 
+export interface CustomGameDifficulty {
+    difficulty: "Easy" | "Medium" | "Hard";
+    isAvailable: boolean;
+    availableCategoryCount: number;
+    missingCategories: string[];
+}
+
+// =====================================
+// Shared request headers
+// =====================================
+
+function getHeaders(
+    token: string | null,
+    hasBody: boolean = true
+): Record<string, string> {
+    const headers: Record<string, string> = {};
+
+    if (hasBody) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    return headers;
+}
+
 // =====================================
 // Shared response handling
 // =====================================
@@ -157,16 +185,15 @@ async function handleResponse<T>(
 // =====================================
 
 export async function startGame(
-    request: StartGameRequest
+    request: StartGameRequest,
+    token: string | null = null
 ): Promise<StartGameResponse> {
     const response = await fetch(
         `${GAMEPLAY_API_URL}/start`,
         {
             method: "POST",
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: getHeaders(token),
 
             body: JSON.stringify(request)
         }
@@ -182,16 +209,15 @@ export async function startGame(
 // =====================================
 
 export async function confirmStartGame(
-    request: ConfirmStartGameRequest
+    request: ConfirmStartGameRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
         `${GAMEPLAY_API_URL}/confirm`,
         {
             method: "POST",
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: getHeaders(token),
 
             body: JSON.stringify(request)
         }
@@ -200,8 +226,6 @@ export async function confirmStartGame(
     return handleResponse<GameState>(
         response
     );
-
-
 }
 
 // =====================================
@@ -209,24 +233,19 @@ export async function confirmStartGame(
 // =====================================
 
 export async function rollDice(
-    request: RollDiceRequest
+    request: RollDiceRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
         `${GAMEPLAY_API_URL}/roll-dice`,
         {
             method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
+            headers: getHeaders(token),
             body: JSON.stringify(request)
         }
     );
 
-    return handleResponse<GameState>(
-        response
-    );
+    return handleResponse<GameState>(response);
 }
 
 // =====================================
@@ -234,132 +253,119 @@ export async function rollDice(
 // =====================================
 
 export async function movePlayer(
-    request: MovePlayerRequest
+    request: MovePlayerRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
         `${GAMEPLAY_API_URL}/move`,
         {
             method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
+            headers: getHeaders(token),
             body: JSON.stringify(request)
         }
     );
 
-    return handleResponse<GameState>(
-        response
-    );
+    return handleResponse<GameState>(response);
 }
+
+// =====================================
+// Answer question
+// =====================================
 
 export async function answerQuestion(
-    request: AnswerQuestionRequest
+    request: AnswerQuestionRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
-        `${API_BASE_URL}/api/Gameplay/answer`,
+        `${GAMEPLAY_API_URL}/answer`,
         {
             method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
+            headers: getHeaders(token),
             body: JSON.stringify(request)
         }
     );
 
-    if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(
-            errorData.message ??
-            "Unable to submit the answer."
-        );
-    }
-
-    return await response.json() as GameState;
+    return handleResponse<GameState>(response);
 }
+
+// =====================================
+// Select center category
+// =====================================
 
 export async function selectCenterCategory(
-    request: SelectCenterCategoryRequest
+    request: SelectCenterCategoryRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
-        `${API_BASE_URL}/api/Gameplay/select-center-category`,
+        `${GAMEPLAY_API_URL}/select-center-category`,
         {
             method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
+            headers: getHeaders(token),
             body: JSON.stringify(request)
         }
     );
 
-    if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(
-            errorData.message ??
-            "Unable to select the center category."
-        );
-    }
-
-    return await response.json() as GameState;
+    return handleResponse<GameState>(response);
 }
+
+// =====================================
+// Select final category
+// =====================================
 
 export async function selectFinalCategory(
-    request: SelectFinalCategoryRequest
+    request: SelectFinalCategoryRequest,
+    token: string | null = null
 ): Promise<GameState> {
     const response = await fetch(
-        `${API_BASE_URL}/api/Gameplay/select-final-category`,
+        `${GAMEPLAY_API_URL}/select-final-category`,
         {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: getHeaders(token),
             body: JSON.stringify(request)
         }
     );
 
-    if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(
-            errorData.message ??
-            "Unable to select the final category."
-        );
-    }
-
-    return await response.json() as GameState;
+    return handleResponse<GameState>(response);
 }
 
+// =====================================
+// Reset game
+// =====================================
+
 export async function resetGame(
-    gameSessionId: string
+    gameSessionId: string,
+    token: string | null = null
 ): Promise<void> {
     const response = await fetch(
-        `${API_BASE_URL}/api/Gameplay/reset/${gameSessionId}`,
+        `${GAMEPLAY_API_URL}/reset/${gameSessionId}`,
         {
-            method: "DELETE"
+            method: "DELETE",
+            headers: getHeaders(token, false)
         }
     );
 
     if (!response.ok) {
-        let message =
-            "Unable to reset the game.";
-
-        try {
-            const errorData = await response.json();
-
-            message =
-                errorData.message ?? message;
-        } catch {
-            // Keep the default error message
-            // if the response has no JSON body.
-        }
-
-        throw new Error(message);
+        await handleResponse<never>(response);
     }
+}
+
+// =====================================
+// Get available custom game difficulties
+// =====================================
+
+export async function getCustomGameDifficulties(
+    customGameId: number,
+    token: string
+): Promise<CustomGameDifficulty[]> {
+    const response = await fetch(
+        `${GAMEPLAY_API_URL}/custom/${customGameId}/difficulties`,
+        {
+            method: "GET",
+            headers: getHeaders(token, false)
+        }
+    );
+
+    return handleResponse<CustomGameDifficulty[]>(
+        response
+    );
 }

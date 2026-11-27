@@ -23,6 +23,7 @@ interface AuthContextValue {
     token: string | null;
     email: string | null;
     isAuthenticated: boolean;
+    isLoading: boolean;
     login: (loginData: LoginRequest) => Promise<void>;
     logout: () => void;
 }
@@ -65,39 +66,48 @@ export function AuthProvider({
     // Stores the email of the authenticated user.
     const [email, setEmail] = useState<string | null>(null);
 
-
+    // Indicates whether the initial authentication
+    // state is still being restored from local storage.
+    const [isLoading, setIsLoading] = useState(true);
+ 
     // =====================================
     // Restore existing login
     // =====================================
 
     useEffect(() => {
-        const storedToken = localStorage.getItem(TOKEN_KEY);
-        const storedEmail = localStorage.getItem(EMAIL_KEY);
-        const storedExpiry = localStorage.getItem(EXPIRY_KEY);
+        try {
+            const storedToken = localStorage.getItem(TOKEN_KEY);
+            const storedEmail = localStorage.getItem(EMAIL_KEY);
+            const storedExpiry = localStorage.getItem(EXPIRY_KEY);
 
-        // If any required authentication value is missing,
-        // there is no valid stored login to restore.
-        if (!storedToken || !storedEmail || !storedExpiry) {
-            return;
+            // If any required authentication value is missing,
+            // there is no valid stored login to restore.
+            if (!storedToken || !storedEmail || !storedExpiry) {
+                return;
+            }
+
+            const expiresAt = new Date(storedExpiry);
+
+            // Remove expired authentication data.
+            if (
+                Number.isNaN(expiresAt.getTime()) ||
+                expiresAt <= new Date()
+            ) {
+                localStorage.removeItem(TOKEN_KEY);
+                localStorage.removeItem(EMAIL_KEY);
+                localStorage.removeItem(EXPIRY_KEY);
+
+                return;
+            }
+
+            // Restore the active login.
+            setToken(storedToken);
+            setEmail(storedEmail);
+        } finally {
+            // Authentication initialization is complete,
+            // even if no valid stored login was found.
+            setIsLoading(false);
         }
-
-        const expiresAt = new Date(storedExpiry);
-
-        // Remove expired authentication data.
-        if (
-            Number.isNaN(expiresAt.getTime()) ||
-            expiresAt <= new Date()
-        ) {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem(EMAIL_KEY);
-            localStorage.removeItem(EXPIRY_KEY);
-
-            return;
-        }
-
-        // Restore the active login.
-        setToken(storedToken);
-        setEmail(storedEmail);
     }, []);
 
 
@@ -160,6 +170,7 @@ export function AuthProvider({
                 token,
                 email,
                 isAuthenticated,
+                isLoading,
                 login,
                 logout
             }}

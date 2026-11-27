@@ -3,6 +3,7 @@ using HMJT.Models;
 using HMJT.Services;
 using HMJT.DAL;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace HMJT.Controllers;
 
@@ -14,12 +15,14 @@ public class GameplayController : ControllerBase
     private readonly GameplaySessionService _gameplaySessionService;
     private readonly BoardService _boardService;
     private readonly IPresetQuestionRepository _presetQuestionRepository;
+    private readonly IGameRepository _gameRepository;
 
     public GameplayController(
         ILogger<GameplayController> logger,
         GameplaySessionService gameplaySessionService,
         BoardService boardService,
-        IPresetQuestionRepository presetQuestionRepository)
+        IPresetQuestionRepository presetQuestionRepository,
+        IGameRepository gameRepository)
     {
         _logger = logger;
 
@@ -31,6 +34,109 @@ public class GameplayController : ControllerBase
 
         _presetQuestionRepository =
             presetQuestionRepository;
+
+        _gameRepository =
+            gameRepository;
+    }
+
+    // =====================================
+    // Get available custom game difficulties
+    // =====================================
+
+    [HttpGet("custom/{customGameId:int}/difficulties")]
+    public async Task<ActionResult> GetCustomGameDifficulties(
+        int customGameId)
+    {
+        // Custom games require authentication.
+        string? userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (User.Identity?.IsAuthenticated != true ||
+            string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message =
+                    "You must log in to access custom games."
+            });
+        }
+
+        // Only retrieve games owned by the current user.
+        Game? customGame =
+            await _gameRepository.GetByIdForUser(
+                customGameId,
+                userId
+            );
+
+        if (customGame is null)
+        {
+            return NotFound(new
+            {
+                message =
+                    "The custom game could not be found."
+            });
+        }
+
+        // All six categories must be available.
+        string[] requiredCategories =
+        {
+            "Java",
+            "JavaScript",
+            "HTML/CSS",
+            "Python",
+            "Game History",
+            "C#"
+        };
+
+        // Combine custom and selected preset questions.
+        var questions = customGame.Questions
+            .Select(question => new
+            {
+                question.Category,
+                question.Difficulty
+            })
+            .Concat(
+                customGame.PresetQuestions.Select(question => new
+                {
+                    question.Category,
+                    question.Difficulty
+                })
+            )
+            .ToList();
+
+        // Check category coverage for every difficulty.
+        var difficulties = Enum.GetValues<Difficulty>()
+            .Select(difficulty =>
+            {
+                var missingCategories = requiredCategories
+                    .Where(category =>
+                        !questions.Any(question =>
+                            question.Difficulty == difficulty &&
+                            question.Category.Equals(
+                                category,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                    )
+                    .ToList();
+
+                return new
+                {
+                    difficulty = difficulty.ToString(),
+
+                    isAvailable =
+                        missingCategories.Count == 0,
+
+                    availableCategoryCount =
+                        requiredCategories.Length -
+                        missingCategories.Count,
+
+                    missingCategories
+                };
+            })
+            .ToList();
+
+        return Ok(difficulties);
     }
 
 
@@ -39,7 +145,7 @@ public class GameplayController : ControllerBase
     // =====================================
 
     [HttpPost("start")]
-    public ActionResult<StartGameResponseDto> StartGame(
+    public async Task<ActionResult<StartGameResponseDto>> StartGame(
         [FromBody] StartGameRequestDto request)
     {
         if (!ModelState.IsValid)
@@ -149,6 +255,87 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate custom game availability before
+        // selecting the starting player.
+        if (request.GameMode.Equals(
+                "Custom",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            string? userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (User.Identity?.IsAuthenticated != true ||
+                string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized(new
+                {
+                    message =
+                        "You must log in to play a custom game."
+                });
+            }
+
+            Game? customGame =
+                await _gameRepository.GetByIdForUser(
+                    request.CustomGameId!.Value,
+                    userId
+                );
+
+            if (customGame is null)
+            {
+                return NotFound(new
+                {
+                    message =
+                        "The custom game could not be found."
+                });
+            }
+
+            Difficulty selectedDifficulty =
+                Enum.Parse<Difficulty>(
+                    request.Difficulty,
+                    true
+                );
+
+            string[] requiredCategories =
+            {
+                "Java",
+                "JavaScript",
+                "HTML/CSS",
+                "Python",
+                "Game History",
+                "C#"
+            };
+
+            List<string> missingCategories =
+                requiredCategories
+                    .Where(category =>
+                        !customGame.Questions.Any(question =>
+                            question.Difficulty == selectedDifficulty &&
+                            question.Category.Equals(
+                                category,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        ) &&
+                        !customGame.PresetQuestions.Any(question =>
+                            question.Difficulty == selectedDifficulty &&
+                            question.Category.Equals(
+                                category,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                    )
+                    .ToList();
+
+            if (missingCategories.Count > 0)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"The selected custom game is missing " +
+                        $"{request.Difficulty} questions in the following " +
+                        $"categories: {string.Join(", ", missingCategories)}."
+                });
+            }
+        }
 
         // Convert the player names into response DTOs.
         List<GamePlayerDto> players =
@@ -216,7 +403,7 @@ public class GameplayController : ControllerBase
     // =====================================
 
     [HttpPost("confirm")]
-    public ActionResult<GameStateDto> ConfirmStartGame(
+    public async Task<ActionResult<GameStateDto>> ConfirmStartGame(
         [FromBody] ConfirmStartGameRequestDto request)
     {
         if (!ModelState.IsValid)
@@ -269,6 +456,139 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate custom game ownership before
+        // creating the gameplay session.
+        string? ownerUserId = null;
+
+        List<GameplayQuestion> customQuestions = new();
+
+        if (request.GameMode.Equals(
+                "Custom",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ownerUserId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (User.Identity?.IsAuthenticated != true ||
+                string.IsNullOrWhiteSpace(ownerUserId))
+            {
+                return Unauthorized(new
+                {
+                    message =
+                        "You must log in to play a custom game."
+                });
+            }
+
+            if (request.CustomGameId is null)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "A custom game must be selected."
+                });
+            }
+
+            Game? customGame =
+                await _gameRepository.GetByIdForUser(
+                    request.CustomGameId.Value,
+                    ownerUserId
+                );
+
+            if (customGame is null)
+            {
+                return NotFound(new
+                {
+                    message =
+                        "The custom game could not be found."
+                });
+            }
+
+            // Convert user-created questions into gameplay questions.
+            customQuestions.AddRange(
+                customGame.Questions.Select(
+                    question => new GameplayQuestion
+                    {
+                        QuestionId = question.QuestionId,
+                        Category = question.Category,
+                        QuestionText = question.QuestionText,
+                        Difficulty = question.Difficulty,
+                        AnswerA = question.AnswerA,
+                        AnswerB = question.AnswerB,
+                        AnswerC = question.AnswerC,
+                        AnswerD = question.AnswerD,
+                        CorrectAnswer = question.CorrectAnswer,
+                        IsPresetQuestion = false
+                    }
+                )
+            );
+
+            // Convert selected preset questions into gameplay questions.
+            customQuestions.AddRange(
+                customGame.PresetQuestions.Select(
+                    question => new GameplayQuestion
+                    {
+                        QuestionId = question.PresetQuestionId,
+                        Category = question.Category,
+                        QuestionText = question.QuestionText,
+                        Difficulty = question.Difficulty,
+                        AnswerA = question.AnswerA,
+                        AnswerB = question.AnswerB,
+                        AnswerC = question.AnswerC,
+                        AnswerD = question.AnswerD,
+                        CorrectAnswer = question.CorrectAnswer,
+                        IsPresetQuestion = true
+                    }
+                )
+            );
+
+            // Only use questions matching the selected difficulty.
+            Difficulty selectedDifficulty =
+                Enum.Parse<Difficulty>(
+                    request.Difficulty,
+                    true
+                );
+
+            customQuestions = customQuestions
+                .Where(question =>
+                    question.Difficulty == selectedDifficulty)
+                .ToList();
+
+            // All six categories must be available
+            // so that every player can complete the game.
+            string[] requiredCategories =
+            {
+                "Java",
+                "JavaScript",
+                "HTML/CSS",
+                "Python",
+                "Game History",
+                "C#"
+            };
+
+            List<string> missingCategories =
+                requiredCategories
+                    .Where(category =>
+                        !customQuestions.Any(question =>
+                            question.Category.Equals(
+                                category,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                    )
+                    .ToList();
+
+            if (missingCategories.Count > 0)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"The selected custom game is missing " +
+                        $"{request.Difficulty} questions in the following " +
+                        $"categories: {string.Join(", ", missingCategories)}."
+                });
+            }
+
+        }
 
         // Confirm that the starting player exists
         // in the submitted player list.
@@ -322,6 +642,19 @@ public class GameplayController : ControllerBase
 
                 GameMode =
                     request.GameMode,
+
+                CustomGameId =
+                    request.GameMode.Equals(
+                        "Custom",
+                        StringComparison.OrdinalIgnoreCase)
+                            ? request.CustomGameId
+                            : null,
+
+                OwnerUserId =
+                    ownerUserId,
+
+                CustomQuestions =
+                    customQuestions,
 
                 Difficulty =
                     request.Difficulty,
@@ -424,6 +757,15 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }
+
 
         // The game cannot continue after a winner
         // has been declared.
@@ -509,13 +851,10 @@ public class GameplayController : ControllerBase
                 diceRoll
             );
 
-        // Special final retry rule from Subapp 1:
-        // if a player failed the final question,
-        // is still standing in the center,
-        // and rolls a 6, the center itself may
-        // be selected again for an immediate retry.
+        // Rolling a 6 allows the player to select
+        // the center again while already standing there.
+        // This also allows an immediate final question retry.
         if (
-            currentPlayer.MustLeaveCenterBeforeFinalRetry &&
             currentPlayer.BoardSpaceId == 43 &&
             diceRoll == 6
         )
@@ -625,6 +964,15 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }
+
 
         // Movement is only allowed while the game
         // is waiting for the current player to move.
@@ -703,6 +1051,31 @@ public class GameplayController : ControllerBase
                 request.BoardSpaceId
             );
 
+        // Retrieve the question before changing the game state.
+        GameplayQuestion? destinationQuestion = null;
+
+        if (
+            destination.SpaceType == BoardSpaceType.Category &&
+            destination.Category != null
+        )
+        {
+            destinationQuestion =
+                await GetRandomGameplayQuestion(
+                    gameState,
+                    destination.Category
+                );
+
+            if (destinationQuestion is null)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"No {gameState.Difficulty} question " +
+                        $"was found for {destination.Category}."
+                });
+            }
+        }
+
         // =====================================
         // Final retry movement
         // =====================================
@@ -740,6 +1113,8 @@ public class GameplayController : ControllerBase
 
         // Clear any active question from the previous turn.
         gameState.ActiveQuestion = null;
+
+        gameState.CurrentGameplayQuestion = null;
 
         // Clear any previous center or final state.
         gameState.NeedsCenterCategory =
@@ -851,82 +1226,19 @@ public class GameplayController : ControllerBase
         }
         else if (
             destination.SpaceType == BoardSpaceType.Category &&
-            destination.Category != null
+            destinationQuestion != null
         )
         {
-            // Standard Game uses preset questions.
-            if (gameState.GameMode.Equals(
-                    "Standard",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                if (!Enum.TryParse<Difficulty>(
-                        gameState.Difficulty,
-                        true,
-                        out Difficulty difficulty))
-                {
-                    return BadRequest(new
-                    {
-                        message =
-                            "The selected difficulty is invalid."
-                    });
-                }
+            SetActiveQuestion(
+                gameState,
+                destinationQuestion
+            );
 
-                PresetQuestion? question =
-                    await _presetQuestionRepository
-                        .GetRandomQuestionAsync(
-                            destination.Category,
-                            difficulty
-                        );
-
-                if (question == null)
-                {
-                    return BadRequest(new
-                    {
-                        message =
-                            $"No {gameState.Difficulty} question " +
-                            $"was found for {destination.Category}."
-                    });
-                }
-
-                gameState.ActiveQuestion =
-                    new ActiveQuestionDto
-                    {
-                        QuestionId =
-                            question.PresetQuestionId,
-
-                        Category =
-                            question.Category,
-
-                        QuestionText =
-                            question.QuestionText,
-
-                        AnswerA =
-                            question.AnswerA,
-
-                        AnswerB =
-                            question.AnswerB,
-
-                        AnswerC =
-                            question.AnswerC,
-
-                        AnswerD =
-                            question.AnswerD
-                    };
-
-                gameState.Message =
-                    $"{currentPlayer.PlayerName} landed on " +
-                    $"{destination.Category}. Answer the question.";
-            }
-            else
-            {
-                // Custom Game question handling will be added separately.
-                gameState.Message =
-                    $"{currentPlayer.PlayerName} landed on " +
-                    $"{destination.Category}.";
-            }
+            gameState.Message =
+                $"{currentPlayer.PlayerName} landed on " +
+                $"{destination.Category}. Answer the question.";
         }
-
-
+        
         // Store the updated state.
         bool updated =
             _gameplaySessionService.UpdateGame(
@@ -992,6 +1304,14 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }
 
         // The game cannot continue after
         // a winner has been declared.
@@ -1106,40 +1426,12 @@ public class GameplayController : ControllerBase
             });
         }
 
-
-        // Standard Game currently uses
-        // the preset question repository.
-        if (!gameState.GameMode.Equals(
-                "Standard",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Custom Game center questions are not supported yet."
-            });
-        }
-
-
-        if (!Enum.TryParse<Difficulty>(
-                gameState.Difficulty,
-                true,
-                out Difficulty difficulty))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "The selected difficulty is invalid."
-            });
-        }
-
-
-        PresetQuestion? question =
-            await _presetQuestionRepository
-                .GetRandomQuestionAsync(
-                    category,
-                    difficulty
-                );
+        // Retrieve a question from the appropriate question pool.
+        GameplayQuestion? question =
+            await GetRandomGameplayQuestion(
+                gameState,
+                category
+            );
 
         if (question is null)
         {
@@ -1151,33 +1443,11 @@ public class GameplayController : ControllerBase
             });
         }
 
-
-        // Create a normal question using the
-        // category selected by the current player.
-        gameState.ActiveQuestion =
-            new ActiveQuestionDto
-            {
-                QuestionId =
-                    question.PresetQuestionId,
-
-                Category =
-                    question.Category,
-
-                QuestionText =
-                    question.QuestionText,
-
-                AnswerA =
-                    question.AnswerA,
-
-                AnswerB =
-                    question.AnswerB,
-
-                AnswerC =
-                    question.AnswerC,
-
-                AnswerD =
-                    question.AnswerD
-            };
+        // Set the active center question.
+        SetActiveQuestion(
+            gameState,
+            question
+        );
 
 
         // The center category selection
@@ -1257,6 +1527,14 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }
 
         if (gameState.IsGameOver)
         {
@@ -1379,38 +1657,12 @@ public class GameplayController : ControllerBase
             });
         }
 
-
-        if (!gameState.GameMode.Equals(
-                "Standard",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Custom Game final questions are not supported yet."
-            });
-        }
-
-
-        if (!Enum.TryParse<Difficulty>(
-                gameState.Difficulty,
-                true,
-                out Difficulty difficulty))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "The selected difficulty is invalid."
-            });
-        }
-
-
-        PresetQuestion? question =
-            await _presetQuestionRepository
-                .GetRandomQuestionAsync(
-                    category,
-                    difficulty
-                );
+        // Retrieve the final question from the appropriate question pool.
+        GameplayQuestion? question =
+            await GetRandomGameplayQuestion(
+                gameState,
+                category
+            );
 
         if (question is null)
         {
@@ -1422,33 +1674,11 @@ public class GameplayController : ControllerBase
             });
         }
 
-
-        // Create the final question.
-        gameState.ActiveQuestion =
-            new ActiveQuestionDto
-            {
-                QuestionId =
-                    question.PresetQuestionId,
-
-                Category =
-                    question.Category,
-
-                QuestionText =
-                    question.QuestionText,
-
-                AnswerA =
-                    question.AnswerA,
-
-                AnswerB =
-                    question.AnswerB,
-
-                AnswerC =
-                    question.AnswerC,
-
-                AnswerD =
-                    question.AnswerD
-            };
-
+        // Set the active final question.
+        SetActiveQuestion(
+            gameState,
+            question
+        );
 
         // Final category selection is complete.
         gameState.NeedsCenterCategory =
@@ -1520,6 +1750,14 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }    
 
         bool removed =
             _gameplaySessionService.RemoveGame(
@@ -1559,7 +1797,7 @@ public class GameplayController : ControllerBase
     // =====================================
 
     [HttpPost("answer")]
-    public async Task<ActionResult<GameStateDto>> AnswerQuestion(
+    public ActionResult<GameStateDto> AnswerQuestion(
         [FromBody] AnswerQuestionRequestDto request)
     {
         if (!ModelState.IsValid)
@@ -1583,6 +1821,14 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Validate access before modifying the game session.
+        ActionResult? accessError =
+            ValidateSessionAccess(gameState);
+
+        if (accessError is not null)
+        {
+            return accessError;
+        }
 
         // The game cannot continue after
         // a winner has been declared.
@@ -1638,31 +1884,14 @@ public class GameplayController : ControllerBase
             });
         }
 
+        // Retrieve the full active question stored on the server.
+        GameplayQuestion? question =
+            gameState.CurrentGameplayQuestion;
 
-        // Custom Game question handling will
-        // be connected separately later.
-        if (!gameState.GameMode.Equals(
-                "Standard",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(new
-            {
-                message =
-                    "Custom Game answers are not supported yet."
-            });
-        }
-
-
-        // Retrieve the full preset question from
-        // the server so CorrectAnswer is never
-        // exposed to the frontend.
-        PresetQuestion? question =
-            await _presetQuestionRepository
-                .GetPresetQuestionById(
-                    request.QuestionId
-                );
-
-        if (question is null)
+        if (
+            question is null ||
+            question.QuestionId != request.QuestionId
+        )
         {
             return NotFound(new
             {
@@ -1670,7 +1899,6 @@ public class GameplayController : ControllerBase
                     "The active question could not be found."
             });
         }
-
 
         // Convert A, B, C or D from the request
         // into the AnswerOption enum used by
@@ -1731,7 +1959,11 @@ public class GameplayController : ControllerBase
         if (gameState.IsFinalQuestion)
         {
             // The final question is now complete.
+
             gameState.ActiveQuestion =
+                null;
+
+            gameState.CurrentGameplayQuestion = 
                 null;
 
             gameState.IsFinalQuestion =
@@ -1845,6 +2077,9 @@ public class GameplayController : ControllerBase
             // The normal question is complete.
             gameState.ActiveQuestion =
                 null;
+            
+            gameState.CurrentGameplayQuestion = 
+                null;
 
             gameState.IsFinalQuestion =
                 false;
@@ -1943,13 +2178,156 @@ public class GameplayController : ControllerBase
             "Player {PlayerNumber} answered question {QuestionId} " +
             "in game session {GameSessionId}. Correct: {IsCorrect}.",
             currentPlayer.PlayerNumber,
-            question.PresetQuestionId,
+            question.QuestionId,
             gameState.GameSessionId,
             isCorrect
         );
 
 
         return Ok(gameState);
+    }
+
+    // =====================================
+    // Select a random gameplay question
+    // =====================================
+
+    private async Task<GameplayQuestion?> GetRandomGameplayQuestion(
+        GameStateDto gameState,
+        string category)
+    {
+        if (!Enum.TryParse<Difficulty>(
+                gameState.Difficulty,
+                true,
+                out Difficulty difficulty))
+        {
+            return null;
+        }
+
+        // Standard games use the preset question repository.
+        if (gameState.GameMode.Equals(
+                "Standard",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            PresetQuestion? question =
+                await _presetQuestionRepository
+                    .GetRandomQuestionAsync(
+                        category,
+                        difficulty
+                    );
+
+            if (question is null)
+            {
+                return null;
+            }
+
+            return new GameplayQuestion
+            {
+                QuestionId = question.PresetQuestionId,
+                Category = question.Category,
+                QuestionText = question.QuestionText,
+                Difficulty = question.Difficulty,
+                AnswerA = question.AnswerA,
+                AnswerB = question.AnswerB,
+                AnswerC = question.AnswerC,
+                AnswerD = question.AnswerD,
+                CorrectAnswer = question.CorrectAnswer,
+                IsPresetQuestion = true
+            };
+        }
+
+        // Custom games use the questions stored
+        // in the active gameplay session.
+        List<GameplayQuestion> matchingQuestions =
+            gameState.CustomQuestions
+                .Where(question =>
+                    question.Category.Equals(
+                        category,
+                        StringComparison.OrdinalIgnoreCase
+                    ) &&
+                    question.Difficulty == difficulty
+                )
+                .ToList();
+
+        if (matchingQuestions.Count == 0)
+        {
+            return null;
+        }
+
+        int randomIndex =
+            Random.Shared.Next(matchingQuestions.Count);
+
+        return matchingQuestions[randomIndex];
+    }
+
+    // =====================================
+    // Set the active gameplay question
+    // =====================================
+
+    private static void SetActiveQuestion(
+        GameStateDto gameState,
+        GameplayQuestion question)
+    {
+        // Keep the correct answer on the server.
+        gameState.CurrentGameplayQuestion = question;
+
+        // Only expose question text and answer options
+        // to the frontend.
+        gameState.ActiveQuestion =
+            new ActiveQuestionDto
+            {
+                QuestionId = question.QuestionId,
+                Category = question.Category,
+                QuestionText = question.QuestionText,
+                AnswerA = question.AnswerA,
+                AnswerB = question.AnswerB,
+                AnswerC = question.AnswerC,
+                AnswerD = question.AnswerD
+            };
+    }
+
+    // =====================================
+    // Authorize access to a gameplay session
+    // =====================================
+
+    private ActionResult? ValidateSessionAccess(
+        GameStateDto gameState)
+    {
+        // Standard games do not require authentication.
+        if (gameState.GameMode.Equals(
+                "Standard",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        // Custom games require an authenticated user.
+        string? userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (User.Identity?.IsAuthenticated != true ||
+            string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message =
+                    "You must log in to access this custom game."
+            });
+        }
+
+        // Only the owner may access the custom game session.
+        if (gameState.OwnerUserId != userId)
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new
+                {
+                    message =
+                        "You do not have access to this game session."
+                }
+            );
+        }
+
+        return null;
     }
 
 }

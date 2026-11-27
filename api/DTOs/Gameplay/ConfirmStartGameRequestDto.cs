@@ -20,4 +20,8 @@ public class ConfirmStartGameRequestDto
 
     [Range(1, 6)]
     public int StartingPlayerNumber { get; set; }
+
+
+    // Used only when GameMode is Custom.
+    public int? CustomGameId { get; set; }
 }
