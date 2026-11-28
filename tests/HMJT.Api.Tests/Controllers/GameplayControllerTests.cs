@@ -1026,24 +1026,57 @@ public class GameplayControllerTests
 
     private sealed class FakeGameRepository : IGameRepository
     {
-        private readonly Game? _game;
+        private Game? _game;
+
+        public int UpdateCallCount { get; private set; }
 
         public FakeGameRepository(Game? game) => _game = game;
 
         public Task<Game?> GetByIdForUser(int id, string userId) =>
-            Task.FromResult(_game is not null && _game.GameId == id &&
-                _game.OwnerUserId == userId ? _game : null);
+            Task.FromResult(
+                _game is not null &&
+                _game.GameId == id &&
+                _game.OwnerUserId == userId
+                    ? _game
+                    : null
+            );
 
         public Task<IEnumerable<Game>> GetAllForUser(string userId) =>
             Task.FromResult<IEnumerable<Game>>(
                 _game is not null && _game.OwnerUserId == userId
-                    ? new[] { _game } : Array.Empty<Game>());
+                    ? new[] { _game }
+                    : Array.Empty<Game>()
+            );
 
-        // Gameplay must not modify saved games through the repository.
-        public Task Create(Game game) => throw new NotSupportedException();
-        public Task Update(Game game) => throw new NotSupportedException();
-        public Task<bool> Delete(int id, string userId) => throw new NotSupportedException();
-        public Task SetPresetQuestion(int gameId, IEnumerable<int> presetQuestionIds) =>
+        // Allow gameplay to update the saved game's play counter.
+        public Task Update(Game game)
+        {
+            if (_game is null ||
+                _game.GameId != game.GameId ||
+                _game.OwnerUserId != game.OwnerUserId)
+            {
+                throw new InvalidOperationException(
+                    "Cannot update an unknown game."
+                );
+            }
+
+            _game = game;
+            UpdateCallCount++;
+
+            return Task.CompletedTask;
+        }
+
+        // Other write operations are not required by gameplay tests.
+        public Task Create(Game game) =>
+            throw new NotSupportedException();
+
+        public Task<bool> Delete(int id, string userId) =>
+            throw new NotSupportedException();
+
+        public Task SetPresetQuestion(
+            int gameId,
+            IEnumerable<int> presetQuestionIds
+        ) =>
             throw new NotSupportedException();
     }
 

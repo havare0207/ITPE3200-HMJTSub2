@@ -459,6 +459,7 @@ public class GameplayController : ControllerBase
         // Validate custom game ownership before
         // creating the gameplay session.
         string? ownerUserId = null;
+        Game? customGame = null;
 
         List<GameplayQuestion> customQuestions = new();
 
@@ -488,7 +489,7 @@ public class GameplayController : ControllerBase
                 });
             }
 
-            Game? customGame =
+            customGame =
                 await _gameRepository.GetByIdForUser(
                     request.CustomGameId.Value,
                     ownerUserId
@@ -715,6 +716,14 @@ public class GameplayController : ControllerBase
             );
         }
 
+        // Increment the play counter when a custom game
+        // has been successfully started.
+        if (customGame is not null)
+        {
+            customGame.TimesPlayed++;
+
+            await _gameRepository.Update(customGame);
+        }
 
         _logger.LogInformation(
             "Game session {GameSessionId} confirmed. " +
